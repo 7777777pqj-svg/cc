@@ -1,7 +1,8 @@
 // 把 index.html 的动画逐帧渲染成 MP4。
 //
-// 用法：node scripts/render-mp4.js [输出.mp4] [--fps 30] [--width 1920] [--gsap 本地gsap.min.js] [--frames 0,3.5,12]
+// 用法：node scripts/render-mp4.js [输出.mp4] [--fps 30] [--width 1920] [--audio 配乐.wav] [--gsap 本地gsap.min.js] [--frames 0,3.5,12]
 //   需要：playwright（带 Chromium）和系统里的 ffmpeg。
+//   --audio 把配乐混进视频（AAC 256k），配乐由 music/make_music.py 生成
 //   --gsap  网络访问不到 cdnjs 时，用本地的 GSAP 3.12.5 文件代替
 //   --frames 只导出这几个时间点的 PNG 截图（检查画面用），不生成视频
 //
@@ -23,6 +24,7 @@ const width = Number(opt('width', 1920));
 const height = Math.round(width * 9 / 16);
 const gsapFile = opt('gsap');
 const frameList = opt('frames');
+const audio = opt('audio');
 const page = 'file://' + path.resolve(__dirname, '..', 'index.html') + '#render';
 
 (async () => {
@@ -55,6 +57,7 @@ const page = 'file://' + path.resolve(__dirname, '..', 'index.html') + '#render'
   const total = Math.ceil(duration * fps);
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error',
     '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'mjpeg', '-i', '-',
+    ...(audio ? ['-i', path.resolve(audio), '-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '256k', '-shortest'] : []),
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
   const done = new Promise((res, rej) => ff.on('close', c => (c === 0 ? res() : rej(new Error('ffmpeg exit ' + c)))));

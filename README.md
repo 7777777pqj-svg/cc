@@ -11,11 +11,23 @@
 
 账单截图放在 `assets/receipts/`（订单号已打码），没有提交进仓库。缺少截图时，账单会显示成文字卡片。
 
+## 配乐
+
+`music/make_music.py` 用代码从零合成一段 45.1 秒的原创纯音乐：合成器流行风格，A 大调，96 BPM。没有采样，也没有现成旋律，同一份代码每次生成的 WAV 都逐字节一致。每个画面动作都有对应的音乐打点，比如图标落地、盖章、测试挂掉和通过、插线、账单砸屏、钱包爆炸、结尾的“哇哇哇哇”。
+
+```sh
+pip install numpy scipy pyloudnorm
+python3 music/make_music.py soundtrack.wav
+python3 music/analyze.py soundtrack.wav --png check.png   # 对照打点表检查节拍、响度、峰值
+```
+
+`music/cues.json` 是从动画时间线整理出来的打点表。改了动画时间，要同步改这里。目标指标：响度 -14 LUFS，真峰值 ≤ -2 dBTP，给 AAC 编码留余量，59 个打点全部命中。
+
 ## 导出 MP4
 
 ```sh
 npm i playwright@1.56.1   # 需要配套的 Chromium，系统里还要有 ffmpeg
-node scripts/render-mp4.js ai-relay.mp4            # 1920x1080，30fps
+node scripts/render-mp4.js ai-relay.mp4 --audio soundtrack.wav   # 1920x1080，30fps，带配乐
 node scripts/render-mp4.js ai-relay.mp4 --fps 60
 node scripts/render-mp4.js shot.mp4 --frames 15,24.5   # 只导出这几秒的截图，检查画面用
 ```
