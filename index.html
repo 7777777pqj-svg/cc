@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI 四棒接力</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;900&display=swap">
+<style>
+/* 布局：接力赛道。顶部四站赛道，一个光环当“接力棒”在站间滑动；下方舞台逐棒演示每个模型在做什么 */
+:root{
+  --bg:#ECEFF3; --surface:#FFFFFF; --sunk:#F3F5F8; --ink:#17202C; --muted:#5A6576; --line:#D3D9E2;
+  --claude:#BF5B33; --gemini:#2D63CC; --codex:#0D8565; --router:#7144C6;
+  --term-bg:#141A24; --term-ink:#D8DEE8; --term-dim:#7F8A9C; --term-ok:#4FD1A5; --term-err:#F2777A; --term-cmd:#F0A877;
+  --f-display:"Noto Serif SC","Songti SC","STSong",serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.22,.8,.24,1);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E131B; --surface:#161D28; --sunk:#111822; --ink:#E5EAF1; --muted:#97A3B5; --line:#283243;
+  --claude:#E3825A; --gemini:#719DF2; --codex:#39C499; --router:#A787F0;
+  --term-bg:#0A0E14; --term-ink:#D8DEE8; --term-dim:#7F8A9C; --term-ok:#4FD1A5; --term-err:#F2777A; --term-cmd:#F0A877;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0E131B; --surface:#161D28; --sunk:#111822; --ink:#E5EAF1; --muted:#97A3B5; --line:#283243;
+  --claude:#E3825A; --gemini:#719DF2; --codex:#39C499; --router:#A787F0;
+  --term-bg:#0A0E14; --term-ink:#D8DEE8; --term-dim:#7F8A9C; --term-ok:#4FD1A5; --term-err:#F2777A; --term-cmd:#F0A877;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.65}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 20px 56px;display:grid;gap:28px}
+
+/* 标题 */
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+h1{font-family:var(--f-display);font-weight:900;font-size:clamp(30px,5.4vw,52px);line-height:1.15;margin:0;text-wrap:balance;letter-spacing:.01em}
+h1 .baton-word{color:var(--claude)}
+.lede{margin:12px 0 0;color:var(--muted);max-width:40em}
+.lede b{font-weight:500;color:var(--ink)}
+
+/* 赛道 */
+.rail{position:relative}
+.stations{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.track{position:absolute;top:27px;left:12.5%;right:12.5%;height:2px;background:var(--line);border-radius:2px}
+.track-fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--c,var(--claude));border-radius:2px;transition:width .9s var(--ease),background .6s}
+.baton{position:absolute;top:0;width:56px;height:56px;margin-left:-28px;left:12.5%;border-radius:50%;border:2.5px solid var(--c,var(--claude));box-shadow:0 0 0 6px color-mix(in srgb,var(--c,var(--claude)) 18%,transparent);transition:left .9s var(--ease),border-color .6s,box-shadow .6s;pointer-events:none;z-index:2}
+.st{min-width:0}
+.st button{all:unset;cursor:pointer;display:grid;justify-items:center;gap:6px;width:100%;text-align:center;border-radius:12px;padding-bottom:4px}
+.st button:focus-visible{outline:2px solid var(--c);outline-offset:4px}
+.st .ico{position:relative;z-index:1;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1.5px solid var(--line);color:var(--muted);transition:color .4s,background .4s,border-color .4s}
+.st .ico svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.st .name{font-weight:700;font-size:15px;line-height:1.2;color:var(--muted);transition:color .4s;overflow-wrap:anywhere}
+.st .role{font-size:13px;color:var(--muted);line-height:1.2}
+.st .bar{width:min(120px,80%);height:3px;border-radius:3px;background:var(--line);overflow:hidden}
+.st .bar i{display:block;height:100%;width:calc(var(--p,0) * 100%);background:var(--c)}
+.st.done .ico,.st.on .ico{color:var(--c);border-color:color-mix(in srgb,var(--c) 45%,var(--line));background:color-mix(in srgb,var(--c) 10%,var(--surface))}
+.st.on .name,.st.done .name{color:var(--ink)}
+.st.done .bar i{width:100%}
+
+/* 舞台 */
+.stage{display:grid;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px;min-width:0}
+.scene{grid-area:1/1;min-width:0;display:grid;gap:22px;align-content:start;visibility:hidden;opacity:0;transition:opacity .3s,visibility 0s .3s}
+.scene.active{visibility:visible;opacity:1;transition:opacity .4s}
+.scene-head{display:grid;gap:6px;max-width:44em}
+.tag{justify-self:start;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;padding:3px 10px;border-radius:999px;color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent)}
+.scene h2{font-family:var(--f-display);font-weight:600;font-size:clamp(22px,3.2vw,30px);line-height:1.25;margin:0;text-wrap:balance}
+.scene-head p{margin:0;color:var(--muted)}
+
+/* 进场动效：只在 .active 下有过渡，离场瞬间复位，方便重播 */
+.in{opacity:0;transform:translateY(10px)}
+.active .in{opacity:1;transform:none;transition:opacity .5s var(--d,0s),transform .6s var(--ease) var(--d,0s)}
+
+.handoff{justify-self:start;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;padding:10px 14px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--n) 55%,var(--line));background:color-mix(in srgb,var(--n) 7%,transparent);font-size:14px}
+.handoff b{color:var(--n);font-weight:700;white-space:nowrap}
+.handoff b::after{content:" →"}
+
+/* 第 1 棒：规划 */
+.plan{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:22px;align-items:start}
+.bubble{background:var(--sunk);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:14px 16px}
+.bubble small{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
+.checklist{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.checklist li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px 12px;border-radius:10px;border:1px solid var(--line)}
+.box{width:22px;height:22px;margin-top:2px}
+.box rect{fill:none;stroke:var(--line);stroke-width:1.6}
+.box path{fill:none;stroke:var(--claude);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
+.active .box path{stroke-dashoffset:0;transition:stroke-dashoffset .45s ease-out calc(var(--d) + .35s)}
+.who{font-style:normal;font-family:var(--f-mono);font-size:12px;padding:2px 8px;border-radius:6px;white-space:nowrap;color:var(--w);background:color-mix(in srgb,var(--w) 12%,transparent);align-self:center}
+
+/* 第 2 棒：调研 */
+.search{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:999px;border:1.5px solid color-mix(in srgb,var(--gemini) 50%,var(--line));background:var(--sunk);min-width:0}
+.search svg{flex:none;width:18px;height:18px;fill:none;stroke:var(--gemini);stroke-width:2;stroke-linecap:round}
+.typed{white-space:nowrap;overflow:hidden;clip-path:inset(0 100% 0 0)}
+.active .typed{clip-path:inset(0 0 0 0);transition:clip-path 1.3s steps(14) .3s}
+.caret{width:2px;height:1.2em;background:var(--gemini);animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.results{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;overflow:hidden;border-radius:12px}
+.results::after{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--gemini) 16%,transparent),transparent);transform:translateX(-110%);pointer-events:none}
+.active .results::after{animation:scan 2.2s ease-in-out 1.6s 2}
+@keyframes scan{to{transform:translateX(260%)}}
+.hit{display:grid;gap:4px;align-content:start;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.hit .src{font-family:var(--f-mono);font-size:11px;color:var(--gemini);overflow-wrap:anywhere}
+.hit h3{margin:0;font-size:15px;line-height:1.35}
+.hit p{margin:0;font-size:13px;color:var(--muted)}
+.chip{justify-self:start;margin-top:4px;font-size:12px;padding:1px 8px;border-radius:999px;color:var(--codex);background:color-mix(in srgb,var(--codex) 12%,transparent);opacity:0}
+.active .chip{opacity:1;transition:opacity .4s calc(var(--d) + 1.6s)}
+
+/* 第 3 棒：执行 */
+.term{background:var(--term-bg);color:var(--term-ink);border-radius:12px;overflow:hidden;font-family:var(--f-mono);font-size:13px;line-height:1.75;min-width:0}
+.term-bar{display:flex;align-items:center;gap:6px;padding:9px 14px;background:color-mix(in srgb,var(--term-ink) 7%,transparent);color:var(--term-dim);font-size:12px}
+.term-bar i{width:10px;height:10px;border-radius:50%;background:color-mix(in srgb,var(--term-ink) 22%,transparent)}
+.term-bar span{margin-left:8px}
+.term pre{margin:0;padding:14px 16px 18px;overflow-x:auto;font:inherit}
+.ln{display:inline-block;white-space:pre;clip-path:inset(0 100% 0 0)}
+.active .ln{clip-path:inset(0 0 0 0);transition:clip-path .5s steps(24) var(--d)}
+.ln .p{color:var(--term-cmd)} .ln .dim{color:var(--term-dim)} .ln .ok{color:var(--term-ok)} .ln .err{color:var(--term-err)}
+
+/* 第 4 棒 & 闭环：图 */
+.fig{width:100%;overflow-x:auto}
+.fig svg{display:block;width:100%;max-width:640px;height:auto;margin:0 auto}
+.fig text{font-family:var(--f-body);fill:var(--ink)}
+.fig .mono{font-family:var(--f-mono)}
+.fig .sub{fill:var(--muted);font-size:12px}
+.wire{fill:none;stroke:color-mix(in srgb,var(--router) 55%,var(--line));stroke-width:1.6;stroke-dasharray:1;stroke-dashoffset:1}
+.active .wire{stroke-dashoffset:0;transition:stroke-dashoffset .7s ease-out var(--d)}
+.node rect{fill:var(--surface);stroke:var(--line);stroke-width:1.4}
+.node.hub circle{fill:color-mix(in srgb,var(--router) 14%,var(--surface));stroke:var(--router);stroke-width:2}
+.node.new rect{stroke-dasharray:5 4;stroke:var(--router)}
+.node.new text{fill:var(--router)}
+.fade{opacity:0}
+.active .fade{opacity:1;transition:opacity .5s var(--d)}
+.pk{opacity:0}
+.active .pk{opacity:1;transition:opacity .4s 2.4s}
+.routes{display:flex;flex-wrap:wrap;gap:8px 10px;justify-content:center}
+.routes span{font-size:13px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.routes b{color:var(--ink);font-weight:500}
+.loop-path{fill:none;stroke:var(--line);stroke-width:2;stroke-dasharray:6 7}
+.lnode rect{fill:var(--surface);stroke-width:1.8}
+
+/* 控制条 */
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.controls button{font:inherit;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.controls button:hover{border-color:var(--muted)}
+.controls button:focus-visible{outline:2px solid var(--gemini);outline-offset:2px}
+.controls button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.controls svg{width:14px;height:14px;fill:currentColor}
+.count{margin-left:auto;font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hint{margin:0;font-size:13px;color:var(--muted)}
+
+@media (max-width:760px){
+  .plan{grid-template-columns:minmax(0,1fr)}
+  .results{grid-template-columns:minmax(0,1fr)}
+  .stage{padding:20px 16px}
+}
+@media (max-width:480px){
+  .wrap{padding:28px 16px 40px}
+  .st .role{display:none}
+  .st .name{font-size:13px}
+  .term{font-size:12px}
+  .count{margin-left:0;width:100%}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important}
+  .pk{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">我的 AI 工作流</p>
+    <h1>一个想法，<span class="baton-word">四棒接力</span></h1>
+    <p class="lede"><b>Claude</b> 规划任务，<b>Gemini</b> 搜索调研，<b>Codex</b> 动手执行，<b>OpenRouter</b> 扩展链接。下面用一个真实的小项目，把每一棒演示一遍。</p>
+  </header>
+
+  <div class="rail" id="rail">
+    <div class="track" aria-hidden="true"><div class="track-fill" id="trackFill"></div></div>
+    <div class="baton" id="baton" aria-hidden="true"></div>
+    <ol class="stations" aria-label="接力顺序">
+    <li class="st" style="--c:var(--claude)"><button type="button" data-go="0">
+      <span class="ico"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+      <span class="name">Claude</span><span class="role">规划任务</span><span class="bar"><i></i></span>
+    </button></li>
+    <li class="st" style="--c:var(--gemini)"><button type="button" data-go="1">
+      <span class="ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></span>
+      <span class="name">Gemini</span><span class="role">搜索调研</span><span class="bar"><i></i></span>
+    </button></li>
+    <li class="st" style="--c:var(--codex)"><button type="button" data-go="2">
+      <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 10l3 2-3 2M12 15h5"/></svg></span>
+      <span class="name">Codex</span><span class="role">编写执行</span><span class="bar"><i></i></span>
+    </button></li>
+    <li class="st" style="--c:var(--router)"><button type="button" data-go="3">
+      <span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M6.5 6.5l3.3 3.3M17.5 6.5l-3.3 3.3M6.5 17.5l3.3-3.3M17.5 17.5l-3.3-3.3"/></svg></span>
+      <span class="name">OpenRouter</span><span class="role">扩展链接</span><span class="bar"><i></i></span>
+    </button></li>
+    </ol>
+  </div>
+
+  <main class="stage" id="stage">
+
+    <!-- 第 1 棒：Claude -->
+    <section class="scene active" style="--c:var(--claude)" aria-label="第 1 棒 Claude 规划任务">
+      <div class="scene-head">
+        <span class="tag">第 1 棒 · Claude · 规划任务</span>
+        <h2>先想清楚，再动手</h2>
+        <p>把一句模糊的想法拆成能交付、能验收的步骤，并决定每一步交给谁。</p>
+      </div>
+      <div class="plan">
+        <div class="bubble in" style="--d:.1s"><small>我说</small>做一个每天早上自动汇总 AI 新闻的小助手。</div>
+        <ol class="checklist">
+          <li class="in" style="--d:.6s"><svg class="box" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" rx="6"/><path pathLength="1" d="M6 11.5l3.4 3.4L16 8"/></svg><span>定目标：每天 8:00 推送 10 条要点，每条附原文链接</span><em class="who" style="--w:var(--claude)">Claude</em></li>
+          <li class="in" style="--d:1.2s"><svg class="box" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" rx="6"/><path pathLength="1" d="M6 11.5l3.4 3.4L16 8"/></svg><span>调研：有哪些靠谱、免费的新闻源和接口</span><em class="who" style="--w:var(--gemini)">→ Gemini</em></li>
+          <li class="in" style="--d:1.8s"><svg class="box" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" rx="6"/><path pathLength="1" d="M6 11.5l3.4 3.4L16 8"/></svg><span>实现：抓取、去重、摘要、定时推送，测试要全过</span><em class="who" style="--w:var(--codex)">→ Codex</em></li>
+          <li class="in" style="--d:2.4s"><svg class="box" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" rx="6"/><path pathLength="1" d="M6 11.5l3.4 3.4L16 8"/></svg><span>接入：模型调用统一走一个入口，按任务挑模型</span><em class="who" style="--w:var(--router)">→ OpenRouter</em></li>
+        </ol>
+      </div>
+      <div class="handoff in" style="--d:3.4s;--n:var(--gemini)"><b>交棒给 Gemini</b><span>写好 PLAN.md，第一个问题：新闻从哪儿来？</span></div>
+    </section>
+
+    <!-- 第 2 棒：Gemini -->
+    <section class="scene" style="--c:var(--gemini)" aria-label="第 2 棒 Gemini 搜索调研">
+      <div class="scene-head">
+        <span class="tag">第 2 棒 · Gemini · 搜索调研</span>
+        <h2>广撒网，再收口</h2>
+        <p>带着问题去搜，交叉比对多个来源，把结论和出处一起交回来。</p>
+      </div>
+      <div class="search in" style="--d:0s"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span class="typed">AI 新闻 免费 API 和 RSS 源对比</span><span class="caret"></span></div>
+      <div class="results">
+        <article class="hit in" style="--d:1.7s"><span class="src">export.arxiv.org</span><h3>arXiv API</h3><p>按 cs.AI、cs.CL 等分类拉取当天新论文</p><span class="chip">已核对</span></article>
+        <article class="hit in" style="--d:2.1s"><span class="src">hacker-news.firebaseio.com</span><h3>Hacker News API</h3><p>热门讨论和链接，免费，无需 Key</p><span class="chip">已核对</span></article>
+        <article class="hit in" style="--d:2.5s"><span class="src">各家官方博客 /rss</span><h3>官方博客 RSS</h3><p>模型发布、产品更新的一手消息</p><span class="chip">已核对</span></article>
+      </div>
+      <div class="handoff in" style="--d:4.4s;--n:var(--codex)"><b>交棒给 Codex</b><span>research.md：用这 3 类源，每天 7:30 抓一次，按链接去重。</span></div>
+    </section>
+
+    <!-- 第 3 棒：Codex -->
+    <section class="scene" style="--c:var(--codex)" aria-label="第 3 棒 Codex 编写执行">
+      <div class="scene-head">
+        <span class="tag">第 3 棒 · Codex · 编写执行</span>
+        <h2>照着规格写，跑通为止</h2>
+        <p>读计划和调研结论，写代码、跑测试；失败了自己定位、修好、再跑。</p>
+      </div>
+      <div class="term">
+        <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>~/ai-digest</span></div>
+<pre><span class="ln" style="--d:.3s"><span class="p">$</span> codex "按 PLAN.md 和 research.md 实现每日新闻汇总"</span>
+<span class="ln" style="--d:1s"><span class="dim">· 读取 PLAN.md、research.md</span></span>
+<span class="ln" style="--d:1.5s"><span class="ok">+</span> src/fetch.py       <span class="dim">抓取 3 类新闻源</span></span>
+<span class="ln" style="--d:1.8s"><span class="ok">+</span> src/dedupe.py      <span class="dim">按链接和标题去重</span></span>
+<span class="ln" style="--d:2.1s"><span class="ok">+</span> src/summarize.py   <span class="dim">生成 10 条要点</span></span>
+<span class="ln" style="--d:2.4s"><span class="ok">+</span> src/notify.py      <span class="dim">每天 8:00 推送</span></span>
+<span class="ln" style="--d:3s"><span class="p">$</span> pytest -q</span>
+<span class="ln" style="--d:3.6s"><span class="err">✗ 1 failed</span>  <span class="dim">test_dedupe_same_title</span></span>
+<span class="ln" style="--d:4.3s"><span class="dim">· 修复 dedupe.py：标题统一小写、去空格后再比较</span></span>
+<span class="ln" style="--d:5s"><span class="p">$</span> pytest -q</span>
+<span class="ln" style="--d:5.6s"><span class="ok">✓ 14 passed</span></span></pre>
+      </div>
+      <div class="handoff in" style="--d:6.2s;--n:var(--router)"><b>交棒给 OpenRouter</b><span>summarize.py 里所有模型调用，统一走它的接口。</span></div>
+    </section>
+
+    <!-- 第 4 棒：OpenRouter -->
+    <section class="scene" style="--c:var(--router)" aria-label="第 4 棒 OpenRouter 扩展链接">
+      <div class="scene-head">
+        <span class="tag">第 4 棒 · OpenRouter · 扩展链接</span>
+        <h2>一个接口，连上更多模型</h2>
+        <p>同一个 API Key，按任务路由到不同模型。有新模型上线，改一行配置就能接进来。</p>
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 520 320" role="img" aria-label="你的应用通过 OpenRouter 连接到 Claude、Gemini、GPT、Llama、DeepSeek、Qwen 和更多新模型">
+          <path id="w0" class="wire" style="--d:.5s" pathLength="1" d="M94 160H190"/>
+          <path id="w1" class="wire" style="--d:1s" pathLength="1" d="M270 160C330 160 330 28 392 28"/>
+          <path id="w2" class="wire" style="--d:1.1s" pathLength="1" d="M270 160C330 160 330 72 392 72"/>
+          <path id="w3" class="wire" style="--d:1.2s" pathLength="1" d="M270 160C330 160 330 116 392 116"/>
+          <path id="w4" class="wire" style="--d:1.3s" pathLength="1" d="M270 160H392"/>
+          <path id="w5" class="wire" style="--d:1.4s" pathLength="1" d="M270 160C330 160 330 204 392 204"/>
+          <path id="w6" class="wire" style="--d:1.5s" pathLength="1" d="M270 160C330 160 330 248 392 248"/>
+          <path class="fade" style="--d:3.2s;fill:none;stroke:var(--router);stroke-width:1.6;stroke-dasharray:5 5" d="M270 160C330 160 330 292 392 292"/>
+
+          <g class="node fade" style="--d:.1s"><rect x="10" y="136" width="84" height="48" rx="10"/><text x="52" y="165" text-anchor="middle" font-size="14">你的应用</text></g>
+          <g class="node hub fade" style="--d:.4s"><circle cx="230" cy="160" r="40"/><text class="mono" x="230" y="164" text-anchor="middle" font-size="11" font-weight="600">OpenRouter</text></g>
+
+          <g class="node fade" style="--d:1.4s"><rect x="392" y="12" width="116" height="32" rx="16"/><text x="450" y="33" text-anchor="middle" font-size="14">Claude</text></g>
+          <g class="node fade" style="--d:1.5s"><rect x="392" y="56" width="116" height="32" rx="16"/><text x="450" y="77" text-anchor="middle" font-size="14">Gemini</text></g>
+          <g class="node fade" style="--d:1.6s"><rect x="392" y="100" width="116" height="32" rx="16"/><text x="450" y="121" text-anchor="middle" font-size="14">GPT</text></g>
+          <g class="node fade" style="--d:1.7s"><rect x="392" y="144" width="116" height="32" rx="16"/><text x="450" y="165" text-anchor="middle" font-size="14">Llama</text></g>
+          <g class="node fade" style="--d:1.8s"><rect x="392" y="188" width="116" height="32" rx="16"/><text x="450" y="209" text-anchor="middle" font-size="14">DeepSeek</text></g>
+          <g class="node fade" style="--d:1.9s"><rect x="392" y="232" width="116" height="32" rx="16"/><text x="450" y="253" text-anchor="middle" font-size="14">Qwen</text></g>
+          <g class="node new fade" style="--d:3.4s"><rect x="392" y="276" width="116" height="32" rx="16"/><text x="450" y="297" text-anchor="middle" font-size="14">+ 新模型</text></g>
+
+          <g class="pk">
+            <circle r="4" style="fill:var(--router)"><animateMotion dur="1.4s" repeatCount="indefinite"><mpath href="#w0"/></animateMotion></circle>
+            <circle r="4" style="fill:var(--claude)"><animateMotion dur="1.8s" begin=".3s" repeatCount="indefinite"><mpath href="#w1"/></animateMotion></circle>
+            <circle r="4" style="fill:var(--gemini)"><animateMotion dur="1.8s" begin=".9s" repeatCount="indefinite"><mpath href="#w2"/></animateMotion></circle>
+            <circle r="4" style="fill:var(--router)"><animateMotion dur="1.8s" begin="1.4s" repeatCount="indefinite"><mpath href="#w4"/></animateMotion></circle>
+            <circle r="4" style="fill:var(--codex)"><animateMotion dur="1.8s" begin=".6s" repeatCount="indefinite"><mpath href="#w5"/></animateMotion></circle>
+          </g>
+        </svg>
+      </div>
+      <div class="routes in" style="--d:2.6s"><span><b>每日摘要</b> → 便宜又快的模型</span><span><b>疑难分析</b> → 强推理模型</span><span><b>某家故障</b> → 自动切到备用</span></div>
+      <div class="handoff in" style="--d:4s;--n:var(--claude)"><b>交回 Claude</b><span>上线跑一周，把结果拿回来复盘。</span></div>
+    </section>
+
+    <!-- 闭环 -->
+    <section class="scene" style="--c:var(--claude)" aria-label="一圈下来，交回 Claude 复盘">
+      <div class="scene-head">
+        <span class="tag">一圈下来 · 回到起点</span>
+        <h2>交回 Claude，开下一轮</h2>
+        <p>Claude 对照第一步定下的验收标准检查结果，发现缺口就写进新计划，接力再跑一圈。</p>
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 520 300" role="img" aria-label="循环：Claude 规划，Gemini 调研，Codex 执行，OpenRouter 连接，再回到 Claude">
+          <path id="loop" class="loop-path" d="M260 45A190 105 0 0 1 450 150A190 105 0 0 1 260 255A190 105 0 0 1 70 150A190 105 0 0 1 260 45"/>
+          <g class="lnode fade" style="--d:.1s"><rect x="196" y="23" width="128" height="44" rx="12" style="stroke:var(--claude)"/><text x="260" y="43" text-anchor="middle" font-size="14" font-weight="700">Claude</text><text class="sub" x="260" y="59" text-anchor="middle">规划 · 复盘</text></g>
+          <g class="lnode fade" style="--d:.4s"><rect x="386" y="128" width="128" height="44" rx="12" style="stroke:var(--gemini)"/><text x="450" y="148" text-anchor="middle" font-size="14" font-weight="700">Gemini</text><text class="sub" x="450" y="164" text-anchor="middle">搜索调研</text></g>
+          <g class="lnode fade" style="--d:.7s"><rect x="196" y="233" width="128" height="44" rx="12" style="stroke:var(--codex)"/><text x="260" y="253" text-anchor="middle" font-size="14" font-weight="700">Codex</text><text class="sub" x="260" y="269" text-anchor="middle">编写执行</text></g>
+          <g class="lnode fade" style="--d:1s"><rect x="6" y="128" width="128" height="44" rx="12" style="stroke:var(--router)"/><text x="70" y="148" text-anchor="middle" font-size="14" font-weight="700">OpenRouter</text><text class="sub" x="70" y="164" text-anchor="middle">扩展链接</text></g>
+          <text x="260" y="146" text-anchor="middle" font-size="20" font-weight="700" style="font-family:var(--f-display)">下一轮</text>
+          <text class="sub" x="260" y="168" text-anchor="middle">每一棒只做自己最擅长的事</text>
+          <g class="pk"><circle r="7" style="fill:var(--claude)"><animateMotion dur="6s" repeatCount="indefinite"><mpath href="#loop"/></animateMotion></circle></g>
+        </svg>
+      </div>
+    </section>
+  </main>
+
+  <div class="controls">
+    <button type="button" id="prev"><svg viewBox="0 0 16 16"><path d="M10.5 3 5 8l5.5 5z"/></svg>上一棒</button>
+    <button type="button" id="play" class="primary" aria-pressed="true"><svg viewBox="0 0 16 16" id="playIco"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg><span id="playTxt">暂停</span></button>
+    <button type="button" id="next">下一棒<svg viewBox="0 0 16 16"><path d="M5.5 3 11 8l-5.5 5z"/></svg></button>
+    <button type="button" id="replay">从头播放</button>
+    <span class="count" id="count" aria-live="polite">第 1 / 5 幕</span>
+  </div>
+  <p class="hint">也可以点上方任意一站直接跳过去，或用键盘 ← → 切换、空格暂停。</p>
+</div>
+
+<script>
+(function(){
+  var scenes = Array.prototype.slice.call(document.querySelectorAll('.scene'));
+  var stations = Array.prototype.slice.call(document.querySelectorAll('.st'));
+  var colors = ['--claude','--gemini','--codex','--router','--claude'];
+  var durations = [7000, 7500, 8500, 7500, 7000];
+  var rail = document.getElementById('rail');
+  var baton = document.getElementById('baton');
+  var fill = document.getElementById('trackFill');
+  var count = document.getElementById('count');
+  var playBtn = document.getElementById('play');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var cur = 0, elapsed = 0, playing = !reduce, last = null;
+
+  function go(i, init){
+    var n = scenes.length;
+    i = (i + n) % n;
+    if (!init) {
+      scenes.forEach(function(s){ s.classList.remove('active'); });
+      void scenes[i].offsetWidth; // 强制回流，让进场动画重新播放
+      scenes[i].classList.add('active');
+    }
+    var pos = i === 4 ? 0 : i; // 闭环幕：接力棒回到 Claude
+    baton.style.left = (pos + 0.5) * 25 + '%';
+    rail.style.setProperty('--c', 'var(' + colors[i] + ')');
+    fill.style.width = (i === 4 ? 100 : pos / 3 * 100) + '%';
+    stations.forEach(function(st, k){
+      st.classList.toggle('on', k === pos);
+      st.classList.toggle('done', i === 4 || k < i);
+      st.querySelector('button').setAttribute('aria-current', k === i ? 'step' : 'false');
+      st.style.setProperty('--p', 0);
+    });
+    count.textContent = '第 ' + (i + 1) + ' / ' + n + ' 幕';
+    cur = i; elapsed = 0;
+  }
+
+  function setPlaying(p){
+    playing = p;
+    playBtn.setAttribute('aria-pressed', String(p));
+    document.getElementById('playTxt').textContent = p ? '暂停' : '播放';
+    document.getElementById('playIco').innerHTML = p
+      ? '<path d="M4 3h3v10H4zM9 3h3v10H9z"/>'
+      : '<path d="M4.5 2.5 13 8l-8.5 5.5z"/>';
+  }
+
+  function tick(t){
+    if (last !== null && playing) {
+      elapsed += Math.min(t - last, 100);
+      var p = Math.min(elapsed / durations[cur], 1);
+      if (cur < 4) stations[cur].style.setProperty('--p', p);
+      if (elapsed >= durations[cur]) go(cur + 1);
+    }
+    last = t;
+    requestAnimationFrame(tick);
+  }
+
+  document.getElementById('prev').onclick = function(){ go(cur - 1); };
+  document.getElementById('next').onclick = function(){ go(cur + 1); };
+  document.getElementById('replay').onclick = function(){ go(0); setPlaying(true); };
+  playBtn.onclick = function(){ setPlaying(!playing); };
+  stations.forEach(function(st){
+    st.querySelector('button').onclick = function(){ go(+this.getAttribute('data-go')); };
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.target.closest && e.target.closest('button') && e.key === ' ') return;
+    if (e.key === 'ArrowRight') go(cur + 1);
+    else if (e.key === 'ArrowLeft') go(cur - 1);
+    else if (e.key === ' ') { e.preventDefault(); setPlaying(!playing); }
+  });
+
+  setPlaying(playing);
+  go(0, true); // 首屏直接呈现完整画面
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
