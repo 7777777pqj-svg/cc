@@ -139,6 +139,28 @@ h1 .baton-word{color:var(--claude)}
 .loop-path{fill:none;stroke:var(--line);stroke-width:2;stroke-dasharray:6 7}
 .lnode rect{fill:var(--surface);stroke-width:1.8}
 
+/* 第 6 幕：每月成本（真实订单截图） */
+.receipts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:start}
+.rc{margin:0;display:grid;gap:10px;min-width:0}
+.scene .rc.in{transform:translateY(28px) rotate(var(--r,-2deg))}
+.active .rc.in{transform:none}
+.shot{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#F2F2F7;box-shadow:0 10px 24px -14px rgba(10,20,40,.35)}
+.shot img{display:block;width:100%;height:auto}
+.shot.missing{display:grid;place-items:center;min-height:160px;padding:16px;background:var(--sunk);color:var(--muted);font-size:13px;text-align:center}
+.shot.missing img,.shot.missing .stamp{display:none}
+.shot.missing::before{content:"订单截图只在在线版里显示"}
+.stamp{position:absolute;right:4%;bottom:3%;font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:6px;border:1.5px solid var(--w);color:var(--w);background:rgba(255,255,255,.9);transform:rotate(-6deg) scale(1.6);opacity:0}
+.active .stamp{opacity:1;transform:rotate(-6deg) scale(1);transition:opacity .2s calc(var(--d) + .7s),transform .35s cubic-bezier(.3,1.6,.5,1) calc(var(--d) + .7s)}
+.payg{display:grid;gap:6px;align-content:center;min-height:180px;padding:18px;border-radius:14px;border:1.5px dashed color-mix(in srgb,var(--router) 55%,var(--line));background:color-mix(in srgb,var(--router) 6%,transparent)}
+.payg strong{font-family:var(--f-display);font-size:22px;color:var(--router)}
+.payg p{margin:0;font-size:13px;color:var(--muted)}
+.rc figcaption{display:grid;gap:0;line-height:1.4}
+.rc figcaption b{font-size:15px;color:var(--w)}
+.rc figcaption span{font-size:13px;color:var(--muted)}
+.sum{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;padding:14px 18px;border-radius:12px;background:var(--sunk);border:1px solid var(--line)}
+.sum strong{font-family:var(--f-mono);font-size:clamp(22px,3.4vw,30px);font-variant-numeric:tabular-nums}
+.sum .note{flex-basis:100%;font-size:12px;color:var(--muted)}
+
 /* 控制条 */
 .controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .controls button{font:inherit;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
@@ -152,6 +174,7 @@ h1 .baton-word{color:var(--claude)}
 @media (max-width:760px){
   .plan{grid-template-columns:minmax(0,1fr)}
   .results{grid-template-columns:minmax(0,1fr)}
+  .receipts{grid-template-columns:repeat(2,minmax(0,1fr))}
   .stage{padding:20px 16px}
 }
 @media (max-width:480px){
@@ -322,6 +345,34 @@ h1 .baton-word{color:var(--claude)}
         </svg>
       </div>
     </section>
+
+    <!-- 每月成本 -->
+    <section class="scene" style="--c:var(--muted)" aria-label="幕后：每月成本">
+      <div class="scene-head">
+        <span class="tag">幕后 · 每月成本</span>
+        <h2>四位队员的门票</h2>
+        <p>三份月度订阅，加上 OpenRouter 按量付费。下面是我真实的 App Store 订单。</p>
+      </div>
+      <div class="receipts">
+        <figure class="rc in" style="--d:.2s;--r:-3deg;--w:var(--claude)">
+          <div class="shot"><img src="assets/receipts/claude.jpg" width="560" height="454" alt="Claude Pro 月度订阅订单，US$20.00，2026 年 9 月 19 日，订单号已打码"><span class="stamp">订单号已打码</span></div>
+          <figcaption><b>Claude Pro</b><span>规划任务 · US$20.00 / 月</span></figcaption>
+        </figure>
+        <figure class="rc in" style="--d:.5s;--r:2deg;--w:var(--gemini)">
+          <div class="shot"><img src="assets/receipts/gemini.jpg" width="560" height="495" alt="Google AI Pro 订阅续期订单，US$19.99，2026 年 9 月 29 日，订单号已打码"><span class="stamp">订单号已打码</span></div>
+          <figcaption><b>Google AI Pro</b><span>Gemini 调研 · US$19.99 / 月</span></figcaption>
+        </figure>
+        <figure class="rc in" style="--d:.8s;--r:-2deg;--w:var(--codex)">
+          <div class="shot"><img src="assets/receipts/chatgpt.jpg" width="560" height="454" alt="ChatGPT Pro 100 订阅续期订单，US$100.00，2026 年 9 月 30 日，订单号已打码"><span class="stamp">订单号已打码</span></div>
+          <figcaption><b>ChatGPT Pro</b><span>用 Codex 执行 · US$100.00 / 月</span></figcaption>
+        </figure>
+        <figure class="rc in" style="--d:1.1s;--r:3deg;--w:var(--router)">
+          <div class="payg"><span class="tag" style="--c:var(--router)">OpenRouter</span><strong>按量付费</strong><p>先充值额度，调用哪个模型就按它的价格扣，没有月费。</p></div>
+          <figcaption><b>OpenRouter</b><span>扩展链接 · 用多少付多少</span></figcaption>
+        </figure>
+      </div>
+      <div class="sum in" style="--d:1.6s"><span>每月固定订阅</span><strong>US$<span id="total">139.99</span></strong><span>+ OpenRouter 按量</span><span class="note">订单截图来自 App Store，订单号已打码处理。</span></div>
+    </section>
   </main>
 
   <div class="controls">
@@ -329,7 +380,7 @@ h1 .baton-word{color:var(--claude)}
     <button type="button" id="play" class="primary" aria-pressed="true"><svg viewBox="0 0 16 16" id="playIco"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg><span id="playTxt">暂停</span></button>
     <button type="button" id="next">下一棒<svg viewBox="0 0 16 16"><path d="M5.5 3 11 8l-5.5 5z"/></svg></button>
     <button type="button" id="replay">从头播放</button>
-    <span class="count" id="count" aria-live="polite">第 1 / 5 幕</span>
+    <span class="count" id="count" aria-live="polite">第 1 / 6 幕</span>
   </div>
   <p class="hint">也可以点上方任意一站直接跳过去，或用键盘 ← → 切换、空格暂停。</p>
 </div>
@@ -338,8 +389,32 @@ h1 .baton-word{color:var(--claude)}
 (function(){
   var scenes = Array.prototype.slice.call(document.querySelectorAll('.scene'));
   var stations = Array.prototype.slice.call(document.querySelectorAll('.st'));
-  var colors = ['--claude','--gemini','--codex','--router','--claude'];
-  var durations = [7000, 7500, 8500, 7500, 7000];
+  var colors = ['--claude','--gemini','--codex','--router','--claude','--claude'];
+  var durations = [7000, 7500, 8500, 7500, 7000, 8000];
+  var total = document.getElementById('total');
+
+  // 订单截图没有放进仓库时，用一行提示代替破图
+  Array.prototype.forEach.call(document.querySelectorAll('.shot img'), function(img){
+    function miss(){ img.parentNode.classList.add('missing'); }
+    if (img.complete && !img.naturalWidth) miss(); else img.addEventListener('error', miss);
+  });
+  var countTimer = null;
+
+  // 成本那一幕：合计金额从 0 数到 139.99
+  function countUp(){
+    clearTimeout(countTimer);
+    if (reduce) return;
+    var target = 139.99, t0 = null;
+    total.textContent = '0.00';
+    countTimer = setTimeout(function(){
+      requestAnimationFrame(function step(t){
+        if (t0 === null) t0 = t;
+        var k = Math.min((t - t0) / 1200, 1);
+        total.textContent = (target * (1 - Math.pow(1 - k, 3))).toFixed(2);
+        if (k < 1) requestAnimationFrame(step);
+      });
+    }, 1700);
+  }
   var rail = document.getElementById('rail');
   var baton = document.getElementById('baton');
   var fill = document.getElementById('trackFill');
@@ -356,17 +431,18 @@ h1 .baton-word{color:var(--claude)}
       void scenes[i].offsetWidth; // 强制回流，让进场动画重新播放
       scenes[i].classList.add('active');
     }
-    var pos = i === 4 ? 0 : i; // 闭环幕：接力棒回到 Claude
+    var pos = i >= 4 ? 0 : i; // 闭环和成本两幕：接力棒回到 Claude
     baton.style.left = (pos + 0.5) * 25 + '%';
     rail.style.setProperty('--c', 'var(' + colors[i] + ')');
-    fill.style.width = (i === 4 ? 100 : pos / 3 * 100) + '%';
+    fill.style.width = (i >= 4 ? 100 : pos / 3 * 100) + '%';
     stations.forEach(function(st, k){
       st.classList.toggle('on', k === pos);
-      st.classList.toggle('done', i === 4 || k < i);
+      st.classList.toggle('done', i >= 4 || k < i);
       st.querySelector('button').setAttribute('aria-current', k === i ? 'step' : 'false');
       st.style.setProperty('--p', 0);
     });
     count.textContent = '第 ' + (i + 1) + ' / ' + n + ' 幕';
+    if (i === 5 && !init) countUp();
     cur = i; elapsed = 0;
   }
 
