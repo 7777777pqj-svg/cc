@@ -13,14 +13,19 @@
 :root{
   --surround:#101012; --surround-2:#1D1D22; --text:#F4F1E8; --text-dim:#9C9CA6;
   --paper:#F4F1E8; --ink:#141414; --orange:#FF6B3D; --cobalt:#2F5BFF; --lime:#C6F432;
-  --violet:#7B3FF2; --pink:#FF7AB6; --yellow:#FFD23F; --mint:#3DDC97; --alarm:#FF2D2D;
+  --violet:#7B3FF2; --clawd:#D77757; --pink:#FF7AB6; --yellow:#FFD23F; --mint:#3DDC97; --alarm:#FF2D2D;
   --f-cn:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
   --f-latin:"Unbounded","Noto Sans SC","PingFang SC",sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
-body{background:var(--surround);color:var(--text);font-family:var(--f-cn)}
+body{margin:0;background:var(--surround);color:var(--text);font-family:var(--f-cn)}
+/* 逐帧渲染 MP4 时：画面铺满窗口，隐藏播放条 */
+.render .page{padding:0;gap:0}
+.render .player{width:100vw;gap:0}
+.render .bar,.render .note{display:none}
+.render .vp{border-radius:0}
 .page{display:grid;justify-items:center;gap:14px;padding-block:24px 32px;padding-inline:16px}
 .player{width:min(100%, max(560px, calc((100svh - 150px) * 16 / 9)));display:grid;gap:10px}
 .player:fullscreen{width:100vw;height:100vh;place-content:center;justify-items:center;background:#000;padding:12px}
@@ -92,8 +97,13 @@ svg{overflow:visible}
 .mon{left:780px;top:84px;width:730px;height:450px;background:#0A0A0A;border:12px solid var(--lime);border-radius:20px;padding:26px 30px;font-family:var(--f-mono);font-size:26px;line-height:1.5;color:var(--paper)}
 .mon .l{white-space:nowrap}
 .mon .g{color:var(--lime)} .mon .r{color:var(--alarm)} .mon .y{color:var(--yellow)} .mon .d{color:#8B8B93}
-.desk{left:150px;top:618px;width:620px;height:30px;background:var(--paper);border:6px solid var(--ink);border-radius:8px}
-.leg{top:642px;width:22px;height:300px;background:var(--ink)}
+
+.cbub{left:610px;top:560px;width:500px;height:88px;background:var(--paper);color:var(--ink);border:6px solid var(--ink);border-radius:26px;box-shadow:10px 10px 0 rgba(0,0,0,.4)}
+.cbub::before{content:"";position:absolute;left:-26px;top:22px;border:16px solid transparent;border-left:0;border-right:22px solid var(--ink)}
+.cv{position:absolute;inset:0;display:flex;align-items:center;gap:16px;padding:0 24px;font-size:32px;font-weight:900;white-space:nowrap;opacity:0}
+.ci{flex:none;width:42px;height:42px}
+.dots{flex:none;display:flex;gap:6px}
+.dots i{width:10px;height:10px;border-radius:50%;background:var(--ink)}
 
 /* OpenRouter 房间 */
 .sock{left:1040px;width:310px;height:76px;background:var(--paper);color:var(--ink);border:6px solid var(--ink);border-radius:22px;display:flex;align-items:center;gap:16px;padding:0 22px;font-family:var(--f-latin);font-size:25px;font-weight:700}
@@ -176,7 +186,7 @@ svg{overflow:visible}
               <!-- Claude 的宠物：规划 -->
               <div class="room" id="roomClaude" style="left:3200px;top:-450px;background:var(--orange);--hc:var(--ink);--bc:var(--paper)">
                 <div class="floor" style="top:520px;background:var(--paper)"></div>
-                <div class="rh"><span class="lab">CLAUDE 的宠物</span><span class="big">在规划</span><span class="cap">拆任务、排顺序、定验收标准</span></div>
+                <div class="rh"><span class="lab">CLAUDE 的宠物 · CLAWD</span><span class="big">在规划</span><span class="cap">拆任务、排顺序、定验收标准</span></div>
                 <div class="board">
                   <p class="bt">PLAN.md</p>
                   <ul>
@@ -186,18 +196,9 @@ svg{overflow:visible}
                     <li><svg class="cb" viewBox="0 0 44 44"><rect x="2" y="2" width="40" height="40" rx="10"/><path pathLength="1" d="M11 23l8 8 15-17"/></svg>接多模型 → OpenRouter</li>
                   </ul>
                 </div>
-                <div class="shadow" style="left:290px;top:752px;width:300px;height:30px"></div>
-                <div id="petClaude" style="left:260px;top:500px;width:340px;height:275px">
-                  <svg viewBox="0 0 260 210" width="340" height="275">
-                    <g class="c-body">
-                      <rect class="fo" x="45" y="150" width="20" height="44"/><rect class="fo" x="85" y="150" width="20" height="44"/>
-                      <rect class="fo" x="155" y="150" width="20" height="44"/><rect class="fo" x="195" y="150" width="20" height="44"/>
-                      <rect class="fo" x="20" y="30" width="220" height="125"/>
-                      <rect class="fo" x="0" y="80" width="24" height="34"/>
-                      <g class="c-eyes"><rect class="fk" x="78" y="62" width="18" height="32"/><rect class="fk" x="164" y="62" width="18" height="32"/></g>
-                      <g class="c-arm"><rect class="fo" x="236" y="80" width="24" height="34"/><path d="M256 94L340 14" stroke="var(--ink)" stroke-width="9" stroke-linecap="round"/></g>
-                    </g>
-                  </svg>
+                <div class="shadow" style="left:290px;top:738px;width:320px;height:28px"></div>
+                <div id="petClaude" style="left:270px;top:545px;width:360px;height:200px">
+                  <svg viewBox="0 0 360 200" width="360" height="200" shape-rendering="crispEdges"><g class="c-body" id="clawd"></g></svg>
                 </div>
               </div>
 
@@ -226,8 +227,8 @@ svg{overflow:visible}
 
               <!-- Codex 的宠物：执行 -->
               <div class="room" id="roomCodex" style="left:4800px;top:450px;background:var(--ink);--hc:var(--paper);--bc:var(--lime)">
-                <div class="floor" style="top:660px;background:var(--lime)"></div>
-                <div class="rh"><span class="lab">CODEX 的宠物</span><span class="big">在执行</span><span class="cap">写代码、跑测试，挂了自己修</span></div>
+                <div class="floor" style="top:690px;background:var(--lime)"></div>
+                <div class="rh"><span class="lab">CODEX 的宠物 · 海狸</span><span class="big">在执行</span><span class="cap">写代码、跑测试，挂了自己修</span></div>
                 <div class="mon" id="mon">
                   <div class="l"><b class="g">$</b> codex "实现每日 AI 新闻汇总"</div>
                   <div class="l"><b class="g">+</b> src/fetch.py <b class="d">抓取</b></div>
@@ -239,22 +240,16 @@ svg{overflow:visible}
                   <div class="l y">~ 修好 dedupe.py，再跑</div>
                   <div class="l g">✓ 14 passed</div>
                 </div>
-                <div id="petCodex" style="left:290px;top:345px;width:300px;height:368px">
-                  <svg viewBox="0 0 260 320" width="300" height="368">
-                    <g class="x-ant"><path d="M130 6V44" stroke="var(--paper)" stroke-width="8"/><circle class="fl x-ball" cx="130" cy="8" r="13"/></g>
-                    <rect class="fp" x="20" y="40" width="220" height="150" rx="30"/>
-                    <rect class="fk" x="42" y="62" width="176" height="106" rx="18"/>
-                    <g class="x-eyes"><rect class="fl" x="82" y="92" width="24" height="42" rx="6"/><rect class="fl" x="154" y="92" width="24" height="42" rx="6"/></g>
-                    <g class="x-dead" opacity="0"><path d="M80 96l26 34M106 96l-26 34M152 96l26 34M178 96l-26 34" stroke="var(--alarm)" stroke-width="8" stroke-linecap="round"/></g>
-                    <path class="x-sweat" opacity="0" d="M248 52c10 14 14 22 14 30a14 14 0 0 1-28 0c0-8 4-16 14-30z" fill="#7FD4FF" stroke="var(--ink)" stroke-width="4"/>
-                    <rect class="fp" x="60" y="196" width="140" height="64" rx="20"/>
-                    <rect class="fk" x="30" y="214" width="200" height="26" rx="6"/>
-                    <rect class="fp x-armL" x="4" y="214" width="64" height="24" rx="12"/>
-                    <rect class="fp x-armR" x="192" y="214" width="64" height="24" rx="12"/>
-                  </svg>
+                <div class="shadow" id="bvShadow" style="left:330px;top:684px;width:220px;height:26px"></div>
+                <div id="petCodex" style="left:300px;top:370px;width:280px;height:252px">
+                  <svg viewBox="0 0 280 252" width="280" height="252" shape-rendering="crispEdges"><g class="bv" id="beaver"></g></svg>
                 </div>
-                <div class="desk"></div>
-                <div class="leg" style="left:200px"></div><div class="leg" style="left:700px"></div>
+                <div class="cbub" id="cbub">
+                  <div class="cv"><span class="dots"><i></i><i></i><i></i></span>正在写 fetch.py</div>
+                  <div class="cv"><svg class="ci" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="var(--alarm)"/><path d="M20 10v11l7 5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg>卡住了：1 个测试没过</div>
+                  <div class="cv"><span class="dots"><i></i><i></i><i></i></span>在修 dedupe.py</div>
+                  <div class="cv"><svg class="ci" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#22B04B"/><path d="M11 21l6 6 12-13" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>完成：14 passed</div>
+                </div>
               </div>
 
               <!-- OpenRouter 的宠物：拓展 -->
@@ -362,7 +357,58 @@ svg{overflow:visible}
 (function(){
   var $ = function(s, r){ return (r || document).querySelector(s); };
   var $$ = function(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
-  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var RENDER = location.hash === '#render'; // 逐帧导出 MP4 用
+  if (RENDER) document.documentElement.classList.add('render');
+  var reduce = !RENDER && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- 像素宠物 ---------- */
+  // rows 每个字符一个像素；group(ch) 决定像素进哪个 <g>，方便单独做动画
+  function pixelArt(host, rows, w, h, pal, group){
+    var gs = {};
+    rows.forEach(function(r, y){
+      r.split('').forEach(function(ch, x){
+        if (ch === '.') return;
+        var g = group(ch);
+        (gs[g] = gs[g] || []).push('<rect x="' + x * w + '" y="' + y * h + '" width="' + (w + .5) + '" height="' + (h + .5) + '" fill="' + pal[ch] + '"/>');
+      });
+    });
+    host.innerHTML = Object.keys(gs).map(function(g){ return '<g class="' + g + '">' + gs[g].join('') + '</g>'; }).join('');
+    return host;
+  }
+  // Clawd：照 Claude Code 启动画面里的方块字符图逐格还原（每格半个字符宽、一个字符高）
+  var clawdPal = { '#': 'var(--clawd)', L: 'var(--clawd)', R: 'var(--clawd)', a: 'var(--clawd)', b: 'var(--clawd)', E: 'var(--ink)' };
+  pixelArt(document.getElementById('clawd'), [
+    '...############...',
+    '...##E######E##...',
+    '.LL############RR.',
+    '...############...',
+    '....a.b....a.b....'
+  ], 20, 40, clawdPal, function(ch){ return { E: 'c-eyes', L: 'c-armL', R: 'c-arm', a: 'c-legA', b: 'c-legB' }[ch] || 'c-main'; });
+  $('#clawd .c-arm').insertAdjacentHTML('beforeend', '<path d="M330 100L450 -30" stroke="var(--ink)" stroke-width="10" stroke-linecap="square"/>');
+  // 海狸：Codex Pets 风格的像素宠物
+  pixelArt(document.getElementById('beaver'), [
+    '....DD........DD....',
+    '...DBBD......DBBD...',
+    '...DBBBDDDDDDBBBD...',
+    '..DBBBBBBBBBBBBBBD..',
+    '..DBBKKBBBBBBKKBBD..',
+    '..DBBKKBBBBBBKKBBD..',
+    '..DBBBBBCCCCBBBBBD..',
+    '..DBBBBCCNNCCBBBBD..',
+    '...DBBBCCCCCCBBBD...',
+    '...DBBBBCWWCBBBBD...',
+    '....DDBBBWWBBBDD....',
+    '...DBBCCCCCCCCBBD...',
+    '..DBDCCCCCCCCCCDBD..',
+    '..DBBCCCCCCCCCCBBD..',
+    '..DBBCCCCCCCCCCBBDTT',
+    '...DBBCCCCCCCCBBDTLT',
+    '....DDBBD..DBBDDTTLT',
+    '.....DD......DD..TT.'
+  ], 14, 14, { D: '#5A3820', B: '#9A6234', C: '#EBCB9C', K: '#141414', W: '#FFFFFF', N: '#2E1C10', T: '#4A2E17', L: '#6B4426' },
+  function(ch){ return ch === 'K' ? 'bv-eyes' : (ch === 'T' || ch === 'L') ? 'bv-tail' : 'bv-main'; });
+  $('#beaver').insertAdjacentHTML('beforeend', '<g class="bv-squint" opacity="0" fill="#141414">' +
+    [[5,4],[6,5],[5,6],[14,4],[13,5],[14,6]].map(function(c){ return '<rect x="' + c[0] * 14 + '" y="' + c[1] * 14 + '" width="14.5" height="14.5"/>'; }).join('') + '</g>');
 
   /* ---------- 应用图标 ---------- */
   function icon(name){
@@ -440,6 +486,7 @@ svg{overflow:visible}
   gsap.set('.stampc', { scale: 0, rotation: -40 });
   gsap.set($$('.card'), { rotation: function(i){ return [-4, 3, -2][i]; } });
   gsap.set('#mon .l', { opacity: 0 });
+  gsap.set('#cbub', { scale: 0, opacity: 0, transformOrigin: '0% 50%' });
   gsap.set('.sock.new', { scale: 0, opacity: 0 });
   gsap.set('#iris', { scale: 0 });
   gsap.set('#chipGrid,#chipBill', { x: -900 });
@@ -466,20 +513,27 @@ svg{overflow:visible}
   gsap.set('.pt', { xPercent: -50, yPercent: -50, opacity: 0, scale: .4 });
 
   /* ---------- 常驻小动作（宠物活着） ---------- */
+  var idles = [];
+  function loop(target, vars){ var t = gsap.to(target, vars); if (RENDER) t.pause(); idles.push(t); return t; }
   if (!reduce) {
-    gsap.to('[data-icon="claude"] .gl', { rotation: 360, transformOrigin: '50% 50%', duration: 9, repeat: -1, ease: 'none' });
-    gsap.to('[data-icon="gemini"] .gl', { scale: 1.14, transformOrigin: '50% 50%', duration: .9, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-    gsap.to('[data-icon="codex"] .cur', { opacity: 0, duration: .45, repeat: -1, yoyo: true, ease: 'steps(1)' });
-    gsap.to('[data-icon="router"] .nd', { scale: 1.35, transformOrigin: '50% 50%', duration: .45, repeat: -1, yoyo: true, stagger: .15, ease: 'sine.inOut' });
-    gsap.to('.c-body', { y: -6, duration: .55, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-    gsap.to('.c-eyes', { scaleY: .1, transformOrigin: '50% 50%', duration: .08, repeat: -1, yoyo: true, repeatDelay: 2.2 });
-    gsap.to('.g-body', { y: -16, rotation: 4, transformOrigin: '50% 50%', duration: 1.2, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-    $$('.card').forEach(function(c, i){ gsap.to(c, { y: -10, duration: 1.1 + i * .3, repeat: -1, yoyo: true, ease: 'sine.inOut' }); });
-    gsap.to('.x-armL', { y: 10, duration: .09, repeat: -1, yoyo: true });
-    gsap.to('.x-armR', { y: 10, duration: .09, repeat: -1, yoyo: true, delay: .09 });
-    gsap.to('.x-ant', { rotation: 10, transformOrigin: '50% 100%', duration: .4, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-    $$('.o-tents path').forEach(function(p, i){ gsap.to(p, { rotation: i % 2 ? 7 : -7, transformOrigin: '50% 0%', duration: .7 + i * .12, repeat: -1, yoyo: true, ease: 'sine.inOut' }); });
-    gsap.to('.o-eyes', { x: 6, duration: 1.4, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    loop('[data-icon="claude"] .gl', { rotation: 360, transformOrigin: '50% 50%', duration: 9, repeat: -1, ease: 'none' });
+    loop('[data-icon="gemini"] .gl', { scale: 1.14, transformOrigin: '50% 50%', duration: .9, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    loop('[data-icon="codex"] .cur', { opacity: 0, duration: .45, repeat: -1, yoyo: true, ease: 'steps(1)' });
+    loop('[data-icon="router"] .nd', { scale: 1.35, transformOrigin: '50% 50%', duration: .45, repeat: -1, yoyo: true, stagger: .15, ease: 'sine.inOut' });
+    loop('.c-body', { y: -8, duration: .5, repeat: -1, yoyo: true, ease: 'steps(1)' });
+    loop('.c-legA', { y: -12, duration: .25, repeat: -1, yoyo: true, ease: 'steps(1)' });
+    loop('.c-legB', { y: -12, duration: .25, repeat: -1, yoyo: true, ease: 'steps(1)', delay: .25 });
+    loop('.c-armL', { y: -16, duration: .5, repeat: -1, yoyo: true, ease: 'steps(1)' });
+    loop('.c-eyes', { keyframes: { scaleY: [1, .1, 1] }, transformOrigin: '50% 50%', duration: .16, repeat: -1, repeatDelay: 2.2, ease: 'none' });
+    loop('.g-body', { y: -16, rotation: 4, transformOrigin: '50% 50%', duration: 1.2, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    $$('.card').forEach(function(c, i){ loop(c, { y: -10, duration: 1.1 + i * .3, repeat: -1, yoyo: true, ease: 'sine.inOut' }); });
+    loop('.bv', { y: -18, duration: 1.1, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    loop('#bvShadow', { scale: .78, opacity: .6, duration: 1.1, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    loop('.bv-tail', { rotation: 10, svgOrigin: '238 196', duration: .3, repeat: -1, yoyo: true, ease: 'steps(2)' });
+    loop('.bv-eyes', { keyframes: { scaleY: [1, .1, 1] }, transformOrigin: '50% 50%', duration: .16, repeat: -1, repeatDelay: 2.6, ease: 'none' });
+    loop('.dots i', { y: -8, duration: .3, repeat: -1, yoyo: true, stagger: .1, ease: 'sine.inOut' });
+    $$('.o-tents path').forEach(function(p, i){ loop(p, { rotation: i % 2 ? 7 : -7, transformOrigin: '50% 0%', duration: .7 + i * .12, repeat: -1, yoyo: true, ease: 'sine.inOut' }); });
+    loop('.o-eyes', { x: 6, duration: 1.4, repeat: -1, yoyo: true, ease: 'sine.inOut' });
   }
 
   /* ---------- 主时间线 ---------- */
@@ -521,7 +575,7 @@ svg{overflow:visible}
     var at = 12.7 + k * .72;
     tl.to(li, { opacity: 1, x: 0, duration: .3 }, at)
       .to($('.cb path', li), { strokeDashoffset: 0, duration: .3, ease: 'power1.out' }, at + .22)
-      .to('.c-arm', { rotation: -16, svgOrigin: '248 97', duration: .14, yoyo: true, repeat: 1 }, at + .15);
+      .to('.c-arm', { rotation: -14, svgOrigin: '320 100', duration: .14, yoyo: true, repeat: 1 }, at + .15);
   });
   tl.to('#petClaude', { y: -70, duration: .22, yoyo: true, repeat: 1, ease: 'power2.out' }, 15.5);
 
@@ -549,17 +603,24 @@ svg{overflow:visible}
   headIn(tl, $('#roomCodex'), 21.6);
   var lines = $$('#mon .l'), lt = [21.9, 22.5, 22.7, 22.9, 23.1, 23.6, 24.2, 25.0, 25.7];
   lines.forEach(function(l, k){ tl.to(l, { opacity: 1, duration: .05 }, lt[k]); });
+  var cvs = $$('#cbub .cv');
+  function bub(k, at){ tl.to(cvs, { opacity: 0, duration: .05 }, at).to(cvs[k], { opacity: 1, duration: .05 }, at + .05); }
+  tl.to('#cbub', { scale: 1, opacity: 1, duration: .4, ease: 'back.out(2)' }, 21.9);
+  bub(0, 21.9);
   tl.to('#mon', { borderColor: cv('--alarm'), duration: .1 }, 24.2)
-    .to('.x-eyes', { opacity: 0, duration: .05 }, 24.2)
-    .to('.x-dead', { opacity: 1, duration: .05 }, 24.2)
-    .to('.x-sweat', { opacity: 1, y: 16, duration: .5 }, 24.25)
+    .to('#cbub', { borderColor: cv('--alarm'), duration: .05 }, 24.2)
+    .to('.bv-eyes', { opacity: 0, duration: .05 }, 24.2)
+    .to('.bv-squint', { opacity: 1, duration: .05 }, 24.2)
+    .to('#petCodex', { keyframes: { x: [0, -12, 12, -9, 9, -4, 0] }, duration: .45, ease: 'none' }, 24.2)
+    .to('#cbub', { keyframes: { scale: [1, 1.12, 1] }, duration: .3, ease: 'none' }, 24.25)
     .add(shake(14, .35), 24.2)
-    .to('.x-dead', { opacity: 0, duration: .05 }, 25.0)
-    .to('.x-eyes', { opacity: 1, duration: .05 }, 25.0)
-    .to('.x-sweat', { opacity: 0, duration: .2 }, 25.1)
+    .to('#cbub', { borderColor: cv('--ink'), duration: .05 }, 25.0)
+    .to('.bv-squint', { opacity: 0, duration: .05 }, 25.0)
+    .to('.bv-eyes', { opacity: 1, duration: .05 }, 25.0)
     .to('#mon', { borderColor: cv('--lime'), duration: .1 }, 25.7)
-    .to('.x-ball', { scale: 1.9, transformOrigin: '50% 50%', duration: .15, yoyo: true, repeat: 3 }, 25.7)
-    .to('#petCodex', { y: -60, duration: .22, yoyo: true, repeat: 1, ease: 'power2.out' }, 25.75);
+    .to('#cbub', { keyframes: { scale: [1, 1.12, 1] }, duration: .3, ease: 'none' }, 25.75)
+    .to('#petCodex', { y: -70, duration: .22, yoyo: true, repeat: 1, ease: 'power2.out' }, 25.75);
+  bub(1, 24.2); bub(2, 25.0); bub(3, 25.7);
 
   // 6. 甩镜头向左：OpenRouter
   tl.to(cam, { x: 4000, duration: .9, ease: 'power4.inOut' }, 26.9)
@@ -673,6 +734,18 @@ svg{overflow:visible}
   });
 
   sync();
+  if (RENDER) {
+    window.__render = {
+      duration: tl.duration(),
+      seek: function(t){
+        tl.time(t);
+        idles.forEach(function(tw){ tw.totalTime(t); });
+        $$('svg').forEach(function(sv){ if (!sv.ownerSVGElement && sv.setCurrentTime) { sv.pauseAnimations(); sv.setCurrentTime(t); } });
+        applyCam();
+      }
+    };
+    return;
+  }
   // 字体就绪后自动开播；系统要求减少动态效果时，停在封面等用户点播放
   if (!reduce) {
     var started = false;
