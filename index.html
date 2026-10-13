@@ -6,483 +6,680 @@
 <title>AI 四棒接力</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Noto+Sans+SC:wght@500;900&family=Unbounded:wght@700;900&display=swap">
 <style>
-/* 布局：接力赛道。顶部四站赛道，一个光环当“接力棒”在站间滑动；下方舞台逐棒演示每个模型在做什么 */
+/* 布局：16:9 影片画框 + 一条极简播放条。画面里所有东西铺在一张大“世界”画布上，由一台虚拟摄像机推拉摇移；
+   转场、账单、爆炸这些贴着屏幕的东西放在 HUD 层。整体是撞色色块，单一深色外框，刻意不跟随系统主题。 */
 :root{
-  --bg:#ECEFF3; --surface:#FFFFFF; --sunk:#F3F5F8; --ink:#17202C; --muted:#5A6576; --line:#D3D9E2;
-  --claude:#BF5B33; --gemini:#2D63CC; --codex:#0D8565; --router:#7144C6;
-  --term-bg:#141A24; --term-ink:#D8DEE8; --term-dim:#7F8A9C; --term-ok:#4FD1A5; --term-err:#F2777A; --term-cmd:#F0A877;
-  --f-display:"Noto Serif SC","Songti SC","STSong",serif;
-  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --surround:#101012; --surround-2:#1D1D22; --text:#F4F1E8; --text-dim:#9C9CA6;
+  --paper:#F4F1E8; --ink:#141414; --orange:#FF6B3D; --cobalt:#2F5BFF; --lime:#C6F432;
+  --violet:#7B3FF2; --pink:#FF7AB6; --yellow:#FFD23F; --mint:#3DDC97; --alarm:#FF2D2D;
+  --f-cn:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  --f-latin:"Unbounded","Noto Sans SC","PingFang SC",sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
-  --ease:cubic-bezier(.22,.8,.24,1);
-}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0E131B; --surface:#161D28; --sunk:#111822; --ink:#E5EAF1; --muted:#97A3B5; --line:#283243;
-  --claude:#E3825A; --gemini:#719DF2; --codex:#39C499; --router:#A787F0;
-  --term-bg:#0A0E14; --term-ink:#D8DEE8; --term-dim:#7F8A9C; --term-ok:#4FD1A5; --term-err:#F2777A; --term-cmd:#F0A877;
-  color-scheme:dark;
-}}
-:root[data-theme="dark"]{
-  --bg:#0E131B; --surface:#161D28; --sunk:#111822; --ink:#E5EAF1; --muted:#97A3B5; --line:#283243;
-  --claude:#E3825A; --gemini:#719DF2; --codex:#39C499; --router:#A787F0;
-  --term-bg:#0A0E14; --term-ink:#D8DEE8; --term-dim:#7F8A9C; --term-ok:#4FD1A5; --term-err:#F2777A; --term-cmd:#F0A877;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.65}
-.wrap{max-width:1040px;margin:0 auto;padding:40px 20px 56px;display:grid;gap:28px}
+body{background:var(--surround);color:var(--text);font-family:var(--f-cn)}
+.page{display:grid;justify-items:center;gap:14px;padding-block:24px 32px;padding-inline:16px}
+.player{width:min(100%, max(560px, calc((100svh - 150px) * 16 / 9)));display:grid;gap:10px}
+.player:fullscreen{width:100vw;height:100vh;place-content:center;justify-items:center;background:#000;padding:12px}
+.player:fullscreen .vp{width:min(calc(100vw - 24px), calc((100vh - 80px) * 16 / 9))}
+.vp{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:var(--paper);max-width:100%}
+.scaler{position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0}
+.shake,.lens,.hud{position:absolute;inset:0}
+.lens{overflow:hidden;background:var(--paper)}
+.cam{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0;will-change:transform}
+.cam > *{position:absolute}
+.hud{pointer-events:none;overflow:hidden}
+.hud > *{position:absolute}
+svg{overflow:visible}
 
-/* 标题 */
-.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
-h1{font-family:var(--f-display);font-weight:900;font-size:clamp(30px,5.4vw,52px);line-height:1.15;margin:0;text-wrap:balance;letter-spacing:.01em}
-h1 .baton-word{color:var(--claude)}
-.lede{margin:12px 0 0;color:var(--muted);max-width:40em}
-.lede b{font-weight:500;color:var(--ink)}
+/* 色块填充类，SVG 里用 */
+.fo{fill:var(--orange)} .fk{fill:var(--ink)} .fp{fill:var(--paper)} .fl{fill:var(--lime)} .fb{fill:var(--cobalt)}
+.fm{fill:var(--mint)} .fy{fill:var(--yellow)} .fv{fill:var(--violet)} .fpk{fill:var(--pink)}
 
-/* 赛道 */
-.rail{position:relative}
-.stations{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
-.track{position:absolute;top:27px;left:12.5%;right:12.5%;height:2px;background:var(--line);border-radius:2px}
-.track-fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--c,var(--claude));border-radius:2px;transition:width .9s var(--ease),background .6s}
-.baton{position:absolute;top:0;width:56px;height:56px;margin-left:-28px;left:12.5%;border-radius:50%;border:2.5px solid var(--c,var(--claude));box-shadow:0 0 0 6px color-mix(in srgb,var(--c,var(--claude)) 18%,transparent);transition:left .9s var(--ease),border-color .6s,box-shadow .6s;pointer-events:none;z-index:2}
-.st{min-width:0}
-.st button{all:unset;cursor:pointer;display:grid;justify-items:center;gap:6px;width:100%;text-align:center;border-radius:12px;padding-bottom:4px}
-.st button:focus-visible{outline:2px solid var(--c);outline-offset:4px}
-.st .ico{position:relative;z-index:1;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1.5px solid var(--line);color:var(--muted);transition:color .4s,background .4s,border-color .4s}
-.st .ico svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.st .name{font-weight:700;font-size:15px;line-height:1.2;color:var(--muted);transition:color .4s;overflow-wrap:anywhere}
-.st .role{font-size:13px;color:var(--muted);line-height:1.2}
-.st .bar{width:min(120px,80%);height:3px;border-radius:3px;background:var(--line);overflow:hidden}
-.st .bar i{display:block;height:100%;width:calc(var(--p,0) * 100%);background:var(--c)}
-.st.done .ico,.st.on .ico{color:var(--c);border-color:color-mix(in srgb,var(--c) 45%,var(--line));background:color-mix(in srgb,var(--c) 10%,var(--surface))}
-.st.on .name,.st.done .name{color:var(--ink)}
-.st.done .bar i{width:100%}
+/* 片头 */
+.ts{top:0;width:400px;height:900px}
+.tblock{left:110px;top:230px;width:900px;padding:40px 52px 46px;background:var(--paper);color:var(--ink);border:8px solid var(--ink);box-shadow:18px 18px 0 var(--ink)}
+.tblock .lab{font-family:var(--f-latin);font-weight:700;font-size:20px;letter-spacing:.14em;margin:0}
+.tblock h1{margin:6px 0 0;font-size:184px;font-weight:900;line-height:1.02;letter-spacing:.02em}
+.tblock p{margin:10px 0 0;font-size:34px;font-weight:500}
 
-/* 舞台 */
-.stage{display:grid;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px;min-width:0}
-.scene{grid-area:1/1;min-width:0;display:grid;gap:22px;align-content:start;visibility:hidden;opacity:0;transition:opacity .3s,visibility 0s .3s}
-.scene.active{visibility:visible;opacity:1;transition:opacity .4s}
-.scene-head{display:grid;gap:6px;max-width:44em}
-.tag{justify-self:start;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;padding:3px 10px;border-radius:999px;color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent)}
-.scene h2{font-family:var(--f-display);font-weight:600;font-size:clamp(22px,3.2vw,30px);line-height:1.25;margin:0;text-wrap:balance}
-.scene-head p{margin:0;color:var(--muted)}
+/* 开场：气泡 + 四个应用 */
+.hub{width:1600px;height:900px}
+.band{position:absolute;top:0;width:400px;height:900px;transform-origin:50% 100%}
+.bubble{position:absolute;left:390px;top:110px;width:820px;height:230px;background:var(--ink);color:var(--paper);border-radius:60px;padding:40px 60px;display:grid;align-content:center;gap:6px}
+.bubble::after{content:"";position:absolute;left:90px;bottom:-30px;width:70px;height:70px;background:var(--ink);transform:rotate(45deg) skew(10deg,10deg);border-radius:0 0 14px 0}
+.bubble p{margin:0;position:relative;z-index:1}
+.bubble .b1{font-size:66px;font-weight:900;line-height:1.1}
+.bubble .b2{font-size:46px;font-weight:500;color:var(--lime);line-height:1.2}
+.tile{position:absolute;top:470px;width:180px;height:180px;border-radius:46px;background:var(--paper);border:7px solid var(--ink);box-shadow:12px 12px 0 var(--ink);display:grid;place-items:center}
+.tile svg{width:112px;height:112px}
+.say{position:absolute;top:700px;white-space:nowrap;background:var(--ink);color:var(--paper);font-size:42px;font-weight:900;padding:12px 30px;border-radius:999px}
+.say::before{content:"";position:absolute;left:50%;top:-14px;margin-left:-14px;border:14px solid transparent;border-top:0;border-bottom-color:var(--ink)}
 
-/* 进场动效：只在 .active 下有过渡，离场瞬间复位，方便重播 */
-.in{opacity:0;transform:translateY(10px)}
-.active .in{opacity:1;transform:none;transition:opacity .5s var(--d,0s),transform .6s var(--ease) var(--d,0s)}
+/* 房间通用 */
+.room{width:1600px;height:900px;overflow:hidden}
+.room > *{position:absolute}
+.floor{left:0;right:0;bottom:0}
+.rh{left:90px;top:64px;display:grid;gap:2px;color:var(--hc)}
+.rh .lab{font-family:var(--f-latin);font-size:22px;font-weight:700;letter-spacing:.14em}
+.rh .big{font-size:150px;font-weight:900;line-height:1.05;color:var(--bc)}
+.rh .cap{font-size:30px;font-weight:500}
+.shadow{border-radius:50%;background:rgba(20,20,20,.18)}
 
-.handoff{justify-self:start;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;padding:10px 14px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--n) 55%,var(--line));background:color-mix(in srgb,var(--n) 7%,transparent);font-size:14px}
-.handoff b{color:var(--n);font-weight:700;white-space:nowrap}
-.handoff b::after{content:" →"}
+/* Claude 房间 */
+.board{left:820px;top:100px;width:690px;height:440px;background:var(--ink);color:var(--paper);border-radius:20px;padding:34px 44px;display:grid;align-content:start;gap:14px}
+.board .bt{font-family:var(--f-mono);font-size:24px;color:var(--lime);margin:0 0 4px}
+.board ul{list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.board li{display:flex;align-items:center;gap:20px;font-size:34px;font-weight:500;line-height:1.2}
+.cb{flex:none;width:44px;height:44px}
+.cb rect{fill:none;stroke:var(--paper);stroke-width:3.5}
+.cb path,.draw{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
+.cb path{stroke:var(--orange);stroke-width:6}
 
-/* 第 1 棒：规划 */
-.plan{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:22px;align-items:start}
-.bubble{background:var(--sunk);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:14px 16px}
-.bubble small{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
-.checklist{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.checklist li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px 12px;border-radius:10px;border:1px solid var(--line)}
-.box{width:22px;height:22px;margin-top:2px}
-.box rect{fill:none;stroke:var(--line);stroke-width:1.6}
-.box path{fill:none;stroke:var(--claude);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
-.active .box path{stroke-dashoffset:0;transition:stroke-dashoffset .45s ease-out calc(var(--d) + .35s)}
-.who{font-style:normal;font-family:var(--f-mono);font-size:12px;padding:2px 8px;border-radius:6px;white-space:nowrap;color:var(--w);background:color-mix(in srgb,var(--w) 12%,transparent);align-self:center}
+/* Gemini 房间 */
+.card{width:290px;height:176px;background:var(--paper);color:var(--ink);border:6px solid var(--ink);border-radius:18px;padding:18px 22px;display:grid;align-content:start;gap:8px}
+.card .src{font-family:var(--f-mono);font-size:17px;opacity:.6}
+.card b{font-family:var(--f-latin);font-size:28px;line-height:1.1}
+.card i{display:block;height:12px;width:210px;border-radius:6px;background:rgba(20,20,20,.14)}
+.card i.s{width:140px}
+.stampc{position:absolute;right:-26px;top:-26px;width:78px;height:78px;border-radius:50%;background:var(--lime);border:6px solid var(--ink);display:grid;place-items:center}
+.stampc svg{width:40px;height:40px}
 
-/* 第 2 棒：调研 */
-.search{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:999px;border:1.5px solid color-mix(in srgb,var(--gemini) 50%,var(--line));background:var(--sunk);min-width:0}
-.search svg{flex:none;width:18px;height:18px;fill:none;stroke:var(--gemini);stroke-width:2;stroke-linecap:round}
-.typed{white-space:nowrap;overflow:hidden;clip-path:inset(0 100% 0 0)}
-.active .typed{clip-path:inset(0 0 0 0);transition:clip-path 1.3s steps(14) .3s}
-.caret{width:2px;height:1.2em;background:var(--gemini);animation:blink 1s steps(1) infinite}
-@keyframes blink{50%{opacity:0}}
-.results{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;overflow:hidden;border-radius:12px}
-.results::after{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--gemini) 16%,transparent),transparent);transform:translateX(-110%);pointer-events:none}
-.active .results::after{animation:scan 2.2s ease-in-out 1.6s 2}
-@keyframes scan{to{transform:translateX(260%)}}
-.hit{display:grid;gap:4px;align-content:start;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.hit .src{font-family:var(--f-mono);font-size:11px;color:var(--gemini);overflow-wrap:anywhere}
-.hit h3{margin:0;font-size:15px;line-height:1.35}
-.hit p{margin:0;font-size:13px;color:var(--muted)}
-.chip{justify-self:start;margin-top:4px;font-size:12px;padding:1px 8px;border-radius:999px;color:var(--codex);background:color-mix(in srgb,var(--codex) 12%,transparent);opacity:0}
-.active .chip{opacity:1;transition:opacity .4s calc(var(--d) + 1.6s)}
+/* Codex 房间 */
+.mon{left:780px;top:84px;width:730px;height:450px;background:#0A0A0A;border:12px solid var(--lime);border-radius:20px;padding:26px 30px;font-family:var(--f-mono);font-size:26px;line-height:1.5;color:var(--paper)}
+.mon .l{white-space:nowrap}
+.mon .g{color:var(--lime)} .mon .r{color:var(--alarm)} .mon .y{color:var(--yellow)} .mon .d{color:#8B8B93}
+.desk{left:150px;top:618px;width:620px;height:30px;background:var(--paper);border:6px solid var(--ink);border-radius:8px}
+.leg{top:642px;width:22px;height:300px;background:var(--ink)}
 
-/* 第 3 棒：执行 */
-.term{background:var(--term-bg);color:var(--term-ink);border-radius:12px;overflow:hidden;font-family:var(--f-mono);font-size:13px;line-height:1.75;min-width:0}
-.term-bar{display:flex;align-items:center;gap:6px;padding:9px 14px;background:color-mix(in srgb,var(--term-ink) 7%,transparent);color:var(--term-dim);font-size:12px}
-.term-bar i{width:10px;height:10px;border-radius:50%;background:color-mix(in srgb,var(--term-ink) 22%,transparent)}
-.term-bar span{margin-left:8px}
-.term pre{margin:0;padding:14px 16px 18px;overflow-x:auto;font:inherit}
-.ln{display:inline-block;white-space:pre;clip-path:inset(0 100% 0 0)}
-.active .ln{clip-path:inset(0 0 0 0);transition:clip-path .5s steps(24) var(--d)}
-.ln .p{color:var(--term-cmd)} .ln .dim{color:var(--term-dim)} .ln .ok{color:var(--term-ok)} .ln .err{color:var(--term-err)}
+/* OpenRouter 房间 */
+.sock{left:1040px;width:310px;height:76px;background:var(--paper);color:var(--ink);border:6px solid var(--ink);border-radius:22px;display:flex;align-items:center;gap:16px;padding:0 22px;font-family:var(--f-latin);font-size:25px;font-weight:700}
+.sock i{flex:none;width:24px;height:24px;border-radius:50%;background:var(--ink)}
+.sock.new{background:transparent;color:var(--paper);border:6px dashed var(--paper);font-family:var(--f-cn);font-weight:900}
+.sock.new i{background:transparent;border:5px solid var(--paper)}
+.cables{left:0;top:0;width:1600px;height:900px}
+.cables path{fill:none;stroke:var(--ink);stroke-width:9;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1}
 
-/* 第 4 棒 & 闭环：图 */
-.fig{width:100%;overflow-x:auto}
-.fig svg{display:block;width:100%;max-width:640px;height:auto;margin:0 auto}
-.fig text{font-family:var(--f-body);fill:var(--ink)}
-.fig .mono{font-family:var(--f-mono)}
-.fig .sub{fill:var(--muted);font-size:12px}
-.wire{fill:none;stroke:color-mix(in srgb,var(--router) 55%,var(--line));stroke-width:1.6;stroke-dasharray:1;stroke-dashoffset:1}
-.active .wire{stroke-dashoffset:0;transition:stroke-dashoffset .7s ease-out var(--d)}
-.node rect{fill:var(--surface);stroke:var(--line);stroke-width:1.4}
-.node.hub circle{fill:color-mix(in srgb,var(--router) 14%,var(--surface));stroke:var(--router);stroke-width:2}
-.node.new rect{stroke-dasharray:5 4;stroke:var(--router)}
-.node.new text{fill:var(--router)}
-.fade{opacity:0}
-.active .fade{opacity:1;transition:opacity .5s var(--d)}
-.pk{opacity:0}
-.active .pk{opacity:1;transition:opacity .4s 2.4s}
-.routes{display:flex;flex-wrap:wrap;gap:8px 10px;justify-content:center}
-.routes span{font-size:13px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
-.routes b{color:var(--ink);font-weight:500}
-.loop-path{fill:none;stroke:var(--line);stroke-width:2;stroke-dasharray:6 7}
-.lnode rect{fill:var(--surface);stroke-width:1.8}
+/* HUD：转场、账单、爆炸、片尾 */
+.iris{left:740px;top:390px;width:120px;height:120px;border-radius:50%}
+.fill{inset:0}
+.chip{left:80px;top:64px;font-size:46px;font-weight:900;padding:14px 32px;border:7px solid var(--ink);box-shadow:12px 12px 0 var(--ink)}
+.rcp{width:340px;background:#fff;border:7px solid var(--ink);border-radius:22px;box-shadow:14px 14px 0 var(--ink);overflow:hidden}
+.rcp img{display:block;width:100%;height:auto}
+.rcp .fb-txt{display:none;padding:26px 24px;color:var(--ink);font-size:28px;font-weight:900;line-height:1.3}
+.rcp .fb-txt span{display:block;font-family:var(--f-latin);font-size:34px}
+.rcp.missing img{display:none}
+.rcp.missing .fb-txt{display:block}
+.rcp .tag{position:absolute;right:12px;bottom:12px;font-size:16px;font-weight:900;padding:2px 10px;border-radius:6px;border:3px solid var(--alarm);color:var(--alarm);background:#fff;transform:rotate(-6deg)}
+.counter{left:50%;bottom:40px;display:flex;align-items:baseline;gap:22px;background:var(--ink);color:var(--paper);padding:16px 36px;border-radius:20px;white-space:nowrap}
+.counter span{font-size:30px;font-weight:500;opacity:.75}
+.counter b{font-family:var(--f-latin);font-size:64px;font-weight:900;color:var(--lime);font-variant-numeric:tabular-nums}
+.wallet{left:660px;top:340px;width:280px;height:230px}
+.pt{position:absolute;left:800px;top:470px}
+.coin{width:46px;height:46px;border-radius:50%;background:var(--yellow);border:5px solid var(--ink)}
+.cash{width:84px;height:44px;border-radius:6px;background:var(--mint);border:5px solid var(--ink);display:grid;place-items:center;font-family:var(--f-latin);font-weight:900;font-size:22px;color:var(--ink)}
+.scrap{width:30px;height:40px;background:#fff;border:4px solid var(--ink)}
+.end-big{left:0;right:0;top:170px;text-align:center;font-size:190px;font-weight:900;color:var(--paper);text-shadow:12px 12px 0 var(--ink);line-height:1}
+.end-sub{left:0;right:0;top:420px;text-align:center;font-size:42px;font-weight:900;color:var(--ink)}
+.end-sub span{display:inline-block;background:var(--paper);padding:10px 28px;border:6px solid var(--ink)}
+.mini{top:560px;width:120px;height:120px;border-radius:32px;background:var(--paper);border:6px solid var(--ink);box-shadow:9px 9px 0 var(--ink);display:grid;place-items:center}
+.mini svg{width:74px;height:74px}
+.again{left:50%;top:740px;pointer-events:auto;cursor:pointer;font:900 34px var(--f-cn);color:var(--paper);background:var(--ink);border:0;border-radius:999px;padding:14px 40px}
+.again:focus-visible{outline:5px solid var(--lime);outline-offset:4px}
 
-/* 第 6 幕：每月成本（真实订单截图） */
-.receipts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:start}
-.rc{margin:0;display:grid;gap:10px;min-width:0}
-.scene .rc.in{transform:translateY(28px) rotate(var(--r,-2deg))}
-.active .rc.in{transform:none}
-.shot{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#F2F2F7;box-shadow:0 10px 24px -14px rgba(10,20,40,.35)}
-.shot img{display:block;width:100%;height:auto}
-.shot.missing{display:grid;place-items:center;min-height:160px;padding:16px;background:var(--sunk);color:var(--muted);font-size:13px;text-align:center}
-.shot.missing img,.shot.missing .stamp{display:none}
-.shot.missing::before{content:"订单截图只在在线版里显示"}
-.stamp{position:absolute;right:4%;bottom:3%;font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:6px;border:1.5px solid var(--w);color:var(--w);background:rgba(255,255,255,.9);transform:rotate(-6deg) scale(1.6);opacity:0}
-.active .stamp{opacity:1;transform:rotate(-6deg) scale(1);transition:opacity .2s calc(var(--d) + .7s),transform .35s cubic-bezier(.3,1.6,.5,1) calc(var(--d) + .7s)}
-.payg{display:grid;gap:6px;align-content:center;min-height:180px;padding:18px;border-radius:14px;border:1.5px dashed color-mix(in srgb,var(--router) 55%,var(--line));background:color-mix(in srgb,var(--router) 6%,transparent)}
-.payg strong{font-family:var(--f-display);font-size:22px;color:var(--router)}
-.payg p{margin:0;font-size:13px;color:var(--muted)}
-.rc figcaption{display:grid;gap:0;line-height:1.4}
-.rc figcaption b{font-size:15px;color:var(--w)}
-.rc figcaption span{font-size:13px;color:var(--muted)}
-.sum{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;padding:14px 18px;border-radius:12px;background:var(--sunk);border:1px solid var(--line)}
-.sum strong{font-family:var(--f-mono);font-size:clamp(22px,3.4vw,30px);font-variant-numeric:tabular-nums}
-.sum .note{flex-basis:100%;font-size:12px;color:var(--muted)}
-
-/* 控制条 */
-.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-.controls button{font:inherit;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
-.controls button:hover{border-color:var(--muted)}
-.controls button:focus-visible{outline:2px solid var(--gemini);outline-offset:2px}
-.controls button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.controls svg{width:14px;height:14px;fill:currentColor}
-.count{margin-left:auto;font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.hint{margin:0;font-size:13px;color:var(--muted)}
-
-@media (max-width:760px){
-  .plan{grid-template-columns:minmax(0,1fr)}
-  .results{grid-template-columns:minmax(0,1fr)}
-  .receipts{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .stage{padding:20px 16px}
-}
-@media (max-width:480px){
-  .wrap{padding:28px 16px 40px}
-  .st .role{display:none}
-  .st .name{font-size:13px}
-  .term{font-size:12px}
-  .count{margin-left:0;width:100%}
-}
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{transition:none!important;animation:none!important}
-  .pk{display:none}
-}
+/* 播放条 */
+.bar{display:flex;align-items:center;gap:10px;background:var(--surround-2);border-radius:999px;padding:8px 12px}
+.bar button{flex:none;width:38px;height:38px;border-radius:50%;border:0;background:transparent;color:var(--text);cursor:pointer;display:grid;place-items:center}
+.bar button:hover{background:rgba(255,255,255,.08)}
+.bar button:focus-visible{outline:2px solid var(--lime);outline-offset:1px}
+.bar svg{width:18px;height:18px;fill:currentColor}
+.bar input{flex:1;min-width:0;accent-color:var(--lime);cursor:pointer}
+.time{flex:none;font-family:var(--f-mono);font-size:13px;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.note{margin:0;max-width:62em;font-size:13px;color:var(--text-dim);text-align:center}
+@media (max-width:480px){ .time{display:none} }
 </style>
 </head>
 <body>
 
-<div class="wrap">
-  <header>
-    <p class="eyebrow">我的 AI 工作流</p>
-    <h1>一个想法，<span class="baton-word">四棒接力</span></h1>
-    <p class="lede"><b>Claude</b> 规划任务，<b>Gemini</b> 搜索调研，<b>Codex</b> 动手执行，<b>OpenRouter</b> 扩展链接。下面用一个真实的小项目，把每一棒演示一遍。</p>
-  </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="mb" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur id="mbg" stdDeviation="0 0"/></filter>
+</svg>
 
-  <div class="rail" id="rail">
-    <div class="track" aria-hidden="true"><div class="track-fill" id="trackFill"></div></div>
-    <div class="baton" id="baton" aria-hidden="true"></div>
-    <ol class="stations" aria-label="接力顺序">
-    <li class="st" style="--c:var(--claude)"><button type="button" data-go="0">
-      <span class="ico"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
-      <span class="name">Claude</span><span class="role">规划任务</span><span class="bar"><i></i></span>
-    </button></li>
-    <li class="st" style="--c:var(--gemini)"><button type="button" data-go="1">
-      <span class="ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></span>
-      <span class="name">Gemini</span><span class="role">搜索调研</span><span class="bar"><i></i></span>
-    </button></li>
-    <li class="st" style="--c:var(--codex)"><button type="button" data-go="2">
-      <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 10l3 2-3 2M12 15h5"/></svg></span>
-      <span class="name">Codex</span><span class="role">编写执行</span><span class="bar"><i></i></span>
-    </button></li>
-    <li class="st" style="--c:var(--router)"><button type="button" data-go="3">
-      <span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M6.5 6.5l3.3 3.3M17.5 6.5l-3.3 3.3M6.5 17.5l3.3-3.3M17.5 17.5l-3.3-3.3"/></svg></span>
-      <span class="name">OpenRouter</span><span class="role">扩展链接</span><span class="bar"><i></i></span>
-    </button></li>
-    </ol>
+<div class="page">
+  <div class="player" id="player">
+    <div class="vp" id="vp" role="group" aria-label="动画短片：一个想法的聊天气泡升起，Claude、Gemini、Codex、OpenRouter 依次跳出来说我来规划、我来调研、我来执行、我来拓展；镜头依次看它们的宠物在规划、调研、写代码、接模型；最后三张订阅账单砸进屏幕，画面变红，钱包爆炸。">
+      <div class="scaler" id="scaler">
+        <div class="shake" id="shake">
+          <div class="lens" id="lens">
+            <div class="cam" id="cam">
+
+              <!-- 开场：气泡 + 应用 -->
+              <div class="hub" style="left:-800px;top:-450px">
+                <div class="band" style="left:0;background:var(--orange)"></div>
+                <div class="band" style="left:400px;background:var(--cobalt)"></div>
+                <div class="band" style="left:800px;background:var(--lime)"></div>
+                <div class="band" style="left:1200px;background:var(--violet)"></div>
+                <div class="bubble" id="bubble"><p class="b1 type">我有个想法：</p><p class="b2 type">每天早上，自动汇总 AI 新闻</p></div>
+                <div class="tile" style="left:110px" data-icon="claude"></div>
+                <div class="tile" style="left:510px" data-icon="gemini"></div>
+                <div class="tile" style="left:910px" data-icon="codex"></div>
+                <div class="tile" style="left:1310px" data-icon="router"></div>
+                <div class="say" style="left:200px">我来规划！</div>
+                <div class="say" style="left:600px">我来调研！</div>
+                <div class="say" style="left:1000px">我来执行！</div>
+                <div class="say" style="left:1400px">我来拓展！</div>
+              </div>
+
+              <!-- Claude 的宠物：规划 -->
+              <div class="room" id="roomClaude" style="left:3200px;top:-450px;background:var(--orange);--hc:var(--ink);--bc:var(--paper)">
+                <div class="floor" style="top:520px;background:var(--paper)"></div>
+                <div class="rh"><span class="lab">CLAUDE 的宠物</span><span class="big">在规划</span><span class="cap">拆任务、排顺序、定验收标准</span></div>
+                <div class="board">
+                  <p class="bt">PLAN.md</p>
+                  <ul>
+                    <li><svg class="cb" viewBox="0 0 44 44"><rect x="2" y="2" width="40" height="40" rx="10"/><path pathLength="1" d="M11 23l8 8 15-17"/></svg>定目标：每天 8:00 推 10 条</li>
+                    <li><svg class="cb" viewBox="0 0 44 44"><rect x="2" y="2" width="40" height="40" rx="10"/><path pathLength="1" d="M11 23l8 8 15-17"/></svg>查新闻源 → Gemini</li>
+                    <li><svg class="cb" viewBox="0 0 44 44"><rect x="2" y="2" width="40" height="40" rx="10"/><path pathLength="1" d="M11 23l8 8 15-17"/></svg>写代码跑测试 → Codex</li>
+                    <li><svg class="cb" viewBox="0 0 44 44"><rect x="2" y="2" width="40" height="40" rx="10"/><path pathLength="1" d="M11 23l8 8 15-17"/></svg>接多模型 → OpenRouter</li>
+                  </ul>
+                </div>
+                <div class="shadow" style="left:290px;top:752px;width:300px;height:30px"></div>
+                <div id="petClaude" style="left:260px;top:500px;width:340px;height:275px">
+                  <svg viewBox="0 0 260 210" width="340" height="275">
+                    <g class="c-body">
+                      <rect class="fo" x="45" y="150" width="20" height="44"/><rect class="fo" x="85" y="150" width="20" height="44"/>
+                      <rect class="fo" x="155" y="150" width="20" height="44"/><rect class="fo" x="195" y="150" width="20" height="44"/>
+                      <rect class="fo" x="20" y="30" width="220" height="125"/>
+                      <rect class="fo" x="0" y="80" width="24" height="34"/>
+                      <g class="c-eyes"><rect class="fk" x="78" y="62" width="18" height="32"/><rect class="fk" x="164" y="62" width="18" height="32"/></g>
+                      <g class="c-arm"><rect class="fo" x="236" y="80" width="24" height="34"/><path d="M256 94L340 14" stroke="var(--ink)" stroke-width="9" stroke-linecap="round"/></g>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Gemini 的宠物：调研 -->
+              <div class="room" id="roomGemini" style="left:4800px;top:-450px;background:var(--cobalt);--hc:var(--paper);--bc:var(--yellow)">
+                <div class="floor" style="top:600px;background:var(--yellow)"></div>
+                <div class="rh"><span class="lab">GEMINI 的宠物</span><span class="big">在调研</span><span class="cap">带着问题去搜，交叉核对出处</span></div>
+                <div class="card" style="left:860px;top:110px"><span class="src">export.arxiv.org</span><b>arXiv API</b><i></i><i class="s"></i><span class="stampc"><svg viewBox="0 0 40 40"><path d="M8 21l8 8 16-18" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+                <div class="card" style="left:1190px;top:190px"><span class="src">hacker-news.firebaseio.com</span><b>Hacker News</b><i></i><i class="s"></i><span class="stampc"><svg viewBox="0 0 40 40"><path d="M8 21l8 8 16-18" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+                <div class="card" style="left:900px;top:370px"><span class="src">官方博客 /rss</span><b>Blog RSS</b><i></i><i class="s"></i><span class="stampc"><svg viewBox="0 0 40 40"><path d="M8 21l8 8 16-18" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+                <div class="shadow" style="left:340px;top:690px;width:240px;height:28px"></div>
+                <div id="petGemini" style="left:300px;top:320px;width:320px;height:320px">
+                  <svg viewBox="0 0 300 300" width="320" height="320">
+                    <g class="g-body">
+                      <path class="fp" d="M150 10C162 105 195 138 290 150C195 162 162 195 150 290C138 195 105 162 10 150C105 138 138 105 150 10Z" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+                      <g class="g-eyes"><ellipse class="fk" cx="128" cy="140" rx="10" ry="16"/><ellipse class="fk" cx="172" cy="140" rx="10" ry="16"/></g>
+                      <circle class="fpk" cx="112" cy="168" r="9"/><circle class="fpk" cx="188" cy="168" r="9"/>
+                      <path d="M140 172q10 9 20 0" fill="none" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+                    </g>
+                  </svg>
+                </div>
+                <div id="lensG" style="left:560px;top:400px;width:170px;height:200px">
+                  <svg viewBox="0 0 170 200" width="170" height="200"><circle cx="70" cy="70" r="54" fill="rgba(244,241,232,.35)" stroke="var(--ink)" stroke-width="14"/><path d="M110 110L160 182" stroke="var(--ink)" stroke-width="20" stroke-linecap="round"/></svg>
+                </div>
+              </div>
+
+              <!-- Codex 的宠物：执行 -->
+              <div class="room" id="roomCodex" style="left:4800px;top:450px;background:var(--ink);--hc:var(--paper);--bc:var(--lime)">
+                <div class="floor" style="top:660px;background:var(--lime)"></div>
+                <div class="rh"><span class="lab">CODEX 的宠物</span><span class="big">在执行</span><span class="cap">写代码、跑测试，挂了自己修</span></div>
+                <div class="mon" id="mon">
+                  <div class="l"><b class="g">$</b> codex "实现每日 AI 新闻汇总"</div>
+                  <div class="l"><b class="g">+</b> src/fetch.py <b class="d">抓取</b></div>
+                  <div class="l"><b class="g">+</b> src/dedupe.py <b class="d">去重</b></div>
+                  <div class="l"><b class="g">+</b> src/summarize.py <b class="d">摘要</b></div>
+                  <div class="l"><b class="g">+</b> src/notify.py <b class="d">推送</b></div>
+                  <div class="l"><b class="g">$</b> pytest -q</div>
+                  <div class="l r">✗ 1 failed  test_dedupe</div>
+                  <div class="l y">~ 修好 dedupe.py，再跑</div>
+                  <div class="l g">✓ 14 passed</div>
+                </div>
+                <div id="petCodex" style="left:290px;top:345px;width:300px;height:368px">
+                  <svg viewBox="0 0 260 320" width="300" height="368">
+                    <g class="x-ant"><path d="M130 6V44" stroke="var(--paper)" stroke-width="8"/><circle class="fl x-ball" cx="130" cy="8" r="13"/></g>
+                    <rect class="fp" x="20" y="40" width="220" height="150" rx="30"/>
+                    <rect class="fk" x="42" y="62" width="176" height="106" rx="18"/>
+                    <g class="x-eyes"><rect class="fl" x="82" y="92" width="24" height="42" rx="6"/><rect class="fl" x="154" y="92" width="24" height="42" rx="6"/></g>
+                    <g class="x-dead" opacity="0"><path d="M80 96l26 34M106 96l-26 34M152 96l26 34M178 96l-26 34" stroke="var(--alarm)" stroke-width="8" stroke-linecap="round"/></g>
+                    <path class="x-sweat" opacity="0" d="M248 52c10 14 14 22 14 30a14 14 0 0 1-28 0c0-8 4-16 14-30z" fill="#7FD4FF" stroke="var(--ink)" stroke-width="4"/>
+                    <rect class="fp" x="60" y="196" width="140" height="64" rx="20"/>
+                    <rect class="fk" x="30" y="214" width="200" height="26" rx="6"/>
+                    <rect class="fp x-armL" x="4" y="214" width="64" height="24" rx="12"/>
+                    <rect class="fp x-armR" x="192" y="214" width="64" height="24" rx="12"/>
+                  </svg>
+                </div>
+                <div class="desk"></div>
+                <div class="leg" style="left:200px"></div><div class="leg" style="left:700px"></div>
+              </div>
+
+              <!-- OpenRouter 的宠物：拓展 -->
+              <div class="room" id="roomRouter" style="left:3200px;top:450px;background:var(--violet);--hc:var(--paper);--bc:var(--pink)">
+                <div class="floor" style="top:690px;background:var(--pink)"></div>
+                <div class="rh"><span class="lab">OPENROUTER 的宠物</span><span class="big">在拓展</span><span class="cap">一个接口，接上更多模型</span></div>
+                <svg class="cables" viewBox="0 0 1600 900">
+                  <path id="rc0" pathLength="1" d="M470 520C760 520 760 128 1040 128"/>
+                  <path id="rc1" pathLength="1" d="M480 550C760 550 760 218 1040 218"/>
+                  <path id="rc2" pathLength="1" d="M486 580C760 580 760 308 1040 308"/>
+                  <path id="rc3" pathLength="1" d="M484 610C760 610 760 398 1040 398"/>
+                  <path id="rc4" pathLength="1" d="M476 640C760 640 760 488 1040 488"/>
+                  <path id="rc5" pathLength="1" d="M462 666C760 666 760 578 1040 578"/>
+                  <path id="rc6" pathLength="1" d="M440 690C760 690 760 668 1040 668" style="stroke:var(--paper)"/>
+                  <g class="pk" opacity="0">
+                    <circle r="10" class="fp"><animateMotion dur="1.4s" repeatCount="indefinite"><mpath href="#rc0"/></animateMotion></circle>
+                    <circle r="10" class="fl"><animateMotion dur="1.4s" begin=".5s" repeatCount="indefinite"><mpath href="#rc2"/></animateMotion></circle>
+                    <circle r="10" class="fy"><animateMotion dur="1.4s" begin=".9s" repeatCount="indefinite"><mpath href="#rc4"/></animateMotion></circle>
+                    <circle r="10" class="fpk"><animateMotion dur="1.4s" begin=".3s" repeatCount="indefinite"><mpath href="#rc6"/></animateMotion></circle>
+                  </g>
+                </svg>
+                <div class="sock" style="top:90px"><i></i>Claude</div>
+                <div class="sock" style="top:180px"><i></i>Gemini</div>
+                <div class="sock" style="top:270px"><i></i>GPT</div>
+                <div class="sock" style="top:360px"><i></i>Llama</div>
+                <div class="sock" style="top:450px"><i></i>DeepSeek</div>
+                <div class="sock" style="top:540px"><i></i>Qwen</div>
+                <div class="sock new" style="top:630px"><i></i>+ 新模型</div>
+                <div class="shadow" style="left:220px;top:760px;width:300px;height:30px"></div>
+                <div id="petRouter" style="left:170px;top:380px;width:360px;height:360px">
+                  <svg viewBox="0 0 340 340" width="360" height="360">
+                    <g class="o-tents" fill="none" stroke="var(--mint)" stroke-width="28" stroke-linecap="round">
+                      <path d="M90 190C70 240 40 260 30 300"/><path d="M125 205C115 260 95 290 100 325"/>
+                      <path d="M160 210C160 265 150 300 165 330"/><path d="M195 205C205 260 225 290 220 325"/>
+                      <path d="M230 190C250 240 290 255 305 295"/><path d="M255 170C290 200 320 205 335 190"/>
+                    </g>
+                    <ellipse class="fm" cx="170" cy="120" rx="122" ry="106"/>
+                    <circle class="fp" cx="128" cy="112" r="26"/><circle class="fp" cx="212" cy="112" r="26"/>
+                    <g class="o-eyes"><circle class="fk" cx="134" cy="116" r="13"/><circle class="fk" cx="218" cy="116" r="13"/></g>
+                    <path d="M150 160q20 16 40 0" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- HUD -->
+          <div class="hud" id="hud">
+            <div class="fill" id="dim" style="background:rgba(20,20,20,.55);opacity:0"></div>
+            <div class="fill" id="red" style="background:var(--alarm);opacity:0"></div>
+            <div class="iris" id="iris"></div>
+            <div class="chip" id="chipGrid" style="background:var(--ink);color:var(--paper)">四只宠物，各忙各的</div>
+            <div class="chip" id="chipBill" style="background:var(--paper);color:var(--ink)">月底，账单到了。</div>
+
+            <div class="rcp" style="left:250px;top:200px"><img src="assets/receipts/claude.jpg" width="560" height="454" alt=""><div class="fb-txt">Claude Pro<span>US$20.00</span></div><span class="tag">订单号已打码</span></div>
+            <div class="rcp" style="left:630px;top:170px"><img src="assets/receipts/gemini.jpg" width="560" height="495" alt=""><div class="fb-txt">Google AI Pro<span>US$19.99</span></div><span class="tag">订单号已打码</span></div>
+            <div class="rcp" style="left:1010px;top:205px"><img src="assets/receipts/chatgpt.jpg" width="560" height="454" alt=""><div class="fb-txt">ChatGPT Pro<span>US$100.00</span></div><span class="tag">订单号已打码</span></div>
+
+            <div class="counter" id="counter"><span>本月订阅</span><b>US$<em id="cnt" style="font-style:normal">0.00</em></b></div>
+
+            <div class="wallet" id="wallet">
+              <svg viewBox="0 0 280 230" width="280" height="230">
+                <rect class="fl" x="40" y="10" width="170" height="70" rx="8" transform="rotate(-8 125 45)" stroke="var(--ink)" stroke-width="7"/>
+                <rect class="fk" x="10" y="50" width="260" height="170" rx="30"/>
+                <rect class="fy" x="180" y="105" width="100" height="62" rx="18" stroke="var(--ink)" stroke-width="7"/>
+                <circle class="fk" cx="212" cy="136" r="10"/>
+              </svg>
+            </div>
+            <div id="parts"></div>
+
+            <div class="fill" id="flash" style="background:#fff;opacity:0"></div>
+            <div class="end-big" id="endBig">钱包，卒。</div>
+            <div class="end-sub" id="endSub"><span>每月 US$139.99 + OpenRouter 按量</span></div>
+            <div class="mini" style="left:520px" data-icon="claude"></div>
+            <div class="mini" style="left:670px" data-icon="gemini"></div>
+            <div class="mini" style="left:820px" data-icon="codex"></div>
+            <div class="mini" style="left:970px" data-icon="router"></div>
+            <button type="button" class="again" id="again">再看一遍</button>
+
+            <!-- 片头，静止时就是封面 -->
+            <div class="ts" style="left:0;background:var(--orange)"></div>
+            <div class="ts" style="left:400px;background:var(--cobalt)"></div>
+            <div class="ts" style="left:800px;background:var(--lime)"></div>
+            <div class="ts" style="left:1200px;background:var(--violet)"></div>
+            <div class="tblock" id="tblock"><p class="lab">CLAUDE · GEMINI · CODEX · OPENROUTER</p><h1>四棒接力</h1><p>一个想法，四个 AI 接力干完</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bar">
+      <button type="button" id="play" aria-label="播放"><svg viewBox="0 0 16 16" id="playIco"><path d="M4 2.5 13.5 8 4 13.5z"/></svg></button>
+      <button type="button" id="restart" aria-label="从头播放"><svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 7.3l1.7-.6A3.7 3.7 0 1 0 8 4.3v2.2L4.6 3.4 8 .3z"/></svg></button>
+      <input type="range" id="seek" min="0" max="1000" value="0" aria-label="播放进度">
+      <span class="time" id="time">0:00 / 0:45</span>
+      <button type="button" id="fs" aria-label="全屏"><svg viewBox="0 0 16 16"><path d="M2 2h5v2H4v3H2zm7 0h5v5h-2V4H9zM2 9h2v3h3v2H2zm10 0h2v5H9v-2h3z"/></svg></button>
+    </div>
   </div>
-
-  <main class="stage" id="stage">
-
-    <!-- 第 1 棒：Claude -->
-    <section class="scene active" style="--c:var(--claude)" aria-label="第 1 棒 Claude 规划任务">
-      <div class="scene-head">
-        <span class="tag">第 1 棒 · Claude · 规划任务</span>
-        <h2>先想清楚，再动手</h2>
-        <p>把一句模糊的想法拆成能交付、能验收的步骤，并决定每一步交给谁。</p>
-      </div>
-      <div class="plan">
-        <div class="bubble in" style="--d:.1s"><small>我说</small>做一个每天早上自动汇总 AI 新闻的小助手。</div>
-        <ol class="checklist">
-          <li class="in" style="--d:.6s"><svg class="box" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" rx="6"/><path pathLength="1" d="M6 11.5l3.4 3.4L16 8"/></svg><span>定目标：每天 8:00 推送 10 条要点，每条附原文链接</span><em class="who" style="--w:var(--claude)">Claude</em></li>
-          <li class="in" style="--d:1.2s"><svg class="box" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" rx="6"/><path pathLength="1" d="M6 11.5l3.4 3.4L16 8"/></svg><span>调研：有哪些靠谱、免费的新闻源和接口</span><em class="who" style="--w:var(--gemini)">→ Gemini</em></li>
-          <li class="in" style="--d:1.8s"><svg class="box" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" rx="6"/><path pathLength="1" d="M6 11.5l3.4 3.4L16 8"/></svg><span>实现：抓取、去重、摘要、定时推送，测试要全过</span><em class="who" style="--w:var(--codex)">→ Codex</em></li>
-          <li class="in" style="--d:2.4s"><svg class="box" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" rx="6"/><path pathLength="1" d="M6 11.5l3.4 3.4L16 8"/></svg><span>接入：模型调用统一走一个入口，按任务挑模型</span><em class="who" style="--w:var(--router)">→ OpenRouter</em></li>
-        </ol>
-      </div>
-      <div class="handoff in" style="--d:3.4s;--n:var(--gemini)"><b>交棒给 Gemini</b><span>写好 PLAN.md，第一个问题：新闻从哪儿来？</span></div>
-    </section>
-
-    <!-- 第 2 棒：Gemini -->
-    <section class="scene" style="--c:var(--gemini)" aria-label="第 2 棒 Gemini 搜索调研">
-      <div class="scene-head">
-        <span class="tag">第 2 棒 · Gemini · 搜索调研</span>
-        <h2>广撒网，再收口</h2>
-        <p>带着问题去搜，交叉比对多个来源，把结论和出处一起交回来。</p>
-      </div>
-      <div class="search in" style="--d:0s"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span class="typed">AI 新闻 免费 API 和 RSS 源对比</span><span class="caret"></span></div>
-      <div class="results">
-        <article class="hit in" style="--d:1.7s"><span class="src">export.arxiv.org</span><h3>arXiv API</h3><p>按 cs.AI、cs.CL 等分类拉取当天新论文</p><span class="chip">已核对</span></article>
-        <article class="hit in" style="--d:2.1s"><span class="src">hacker-news.firebaseio.com</span><h3>Hacker News API</h3><p>热门讨论和链接，免费，无需 Key</p><span class="chip">已核对</span></article>
-        <article class="hit in" style="--d:2.5s"><span class="src">各家官方博客 /rss</span><h3>官方博客 RSS</h3><p>模型发布、产品更新的一手消息</p><span class="chip">已核对</span></article>
-      </div>
-      <div class="handoff in" style="--d:4.4s;--n:var(--codex)"><b>交棒给 Codex</b><span>research.md：用这 3 类源，每天 7:30 抓一次，按链接去重。</span></div>
-    </section>
-
-    <!-- 第 3 棒：Codex -->
-    <section class="scene" style="--c:var(--codex)" aria-label="第 3 棒 Codex 编写执行">
-      <div class="scene-head">
-        <span class="tag">第 3 棒 · Codex · 编写执行</span>
-        <h2>照着规格写，跑通为止</h2>
-        <p>读计划和调研结论，写代码、跑测试；失败了自己定位、修好、再跑。</p>
-      </div>
-      <div class="term">
-        <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>~/ai-digest</span></div>
-<pre><span class="ln" style="--d:.3s"><span class="p">$</span> codex "按 PLAN.md 和 research.md 实现每日新闻汇总"</span>
-<span class="ln" style="--d:1s"><span class="dim">· 读取 PLAN.md、research.md</span></span>
-<span class="ln" style="--d:1.5s"><span class="ok">+</span> src/fetch.py       <span class="dim">抓取 3 类新闻源</span></span>
-<span class="ln" style="--d:1.8s"><span class="ok">+</span> src/dedupe.py      <span class="dim">按链接和标题去重</span></span>
-<span class="ln" style="--d:2.1s"><span class="ok">+</span> src/summarize.py   <span class="dim">生成 10 条要点</span></span>
-<span class="ln" style="--d:2.4s"><span class="ok">+</span> src/notify.py      <span class="dim">每天 8:00 推送</span></span>
-<span class="ln" style="--d:3s"><span class="p">$</span> pytest -q</span>
-<span class="ln" style="--d:3.6s"><span class="err">✗ 1 failed</span>  <span class="dim">test_dedupe_same_title</span></span>
-<span class="ln" style="--d:4.3s"><span class="dim">· 修复 dedupe.py：标题统一小写、去空格后再比较</span></span>
-<span class="ln" style="--d:5s"><span class="p">$</span> pytest -q</span>
-<span class="ln" style="--d:5.6s"><span class="ok">✓ 14 passed</span></span></pre>
-      </div>
-      <div class="handoff in" style="--d:6.2s;--n:var(--router)"><b>交棒给 OpenRouter</b><span>summarize.py 里所有模型调用，统一走它的接口。</span></div>
-    </section>
-
-    <!-- 第 4 棒：OpenRouter -->
-    <section class="scene" style="--c:var(--router)" aria-label="第 4 棒 OpenRouter 扩展链接">
-      <div class="scene-head">
-        <span class="tag">第 4 棒 · OpenRouter · 扩展链接</span>
-        <h2>一个接口，连上更多模型</h2>
-        <p>同一个 API Key，按任务路由到不同模型。有新模型上线，改一行配置就能接进来。</p>
-      </div>
-      <div class="fig">
-        <svg viewBox="0 0 520 320" role="img" aria-label="你的应用通过 OpenRouter 连接到 Claude、Gemini、GPT、Llama、DeepSeek、Qwen 和更多新模型">
-          <path id="w0" class="wire" style="--d:.5s" pathLength="1" d="M94 160H190"/>
-          <path id="w1" class="wire" style="--d:1s" pathLength="1" d="M270 160C330 160 330 28 392 28"/>
-          <path id="w2" class="wire" style="--d:1.1s" pathLength="1" d="M270 160C330 160 330 72 392 72"/>
-          <path id="w3" class="wire" style="--d:1.2s" pathLength="1" d="M270 160C330 160 330 116 392 116"/>
-          <path id="w4" class="wire" style="--d:1.3s" pathLength="1" d="M270 160H392"/>
-          <path id="w5" class="wire" style="--d:1.4s" pathLength="1" d="M270 160C330 160 330 204 392 204"/>
-          <path id="w6" class="wire" style="--d:1.5s" pathLength="1" d="M270 160C330 160 330 248 392 248"/>
-          <path class="fade" style="--d:3.2s;fill:none;stroke:var(--router);stroke-width:1.6;stroke-dasharray:5 5" d="M270 160C330 160 330 292 392 292"/>
-
-          <g class="node fade" style="--d:.1s"><rect x="10" y="136" width="84" height="48" rx="10"/><text x="52" y="165" text-anchor="middle" font-size="14">你的应用</text></g>
-          <g class="node hub fade" style="--d:.4s"><circle cx="230" cy="160" r="40"/><text class="mono" x="230" y="164" text-anchor="middle" font-size="11" font-weight="600">OpenRouter</text></g>
-
-          <g class="node fade" style="--d:1.4s"><rect x="392" y="12" width="116" height="32" rx="16"/><text x="450" y="33" text-anchor="middle" font-size="14">Claude</text></g>
-          <g class="node fade" style="--d:1.5s"><rect x="392" y="56" width="116" height="32" rx="16"/><text x="450" y="77" text-anchor="middle" font-size="14">Gemini</text></g>
-          <g class="node fade" style="--d:1.6s"><rect x="392" y="100" width="116" height="32" rx="16"/><text x="450" y="121" text-anchor="middle" font-size="14">GPT</text></g>
-          <g class="node fade" style="--d:1.7s"><rect x="392" y="144" width="116" height="32" rx="16"/><text x="450" y="165" text-anchor="middle" font-size="14">Llama</text></g>
-          <g class="node fade" style="--d:1.8s"><rect x="392" y="188" width="116" height="32" rx="16"/><text x="450" y="209" text-anchor="middle" font-size="14">DeepSeek</text></g>
-          <g class="node fade" style="--d:1.9s"><rect x="392" y="232" width="116" height="32" rx="16"/><text x="450" y="253" text-anchor="middle" font-size="14">Qwen</text></g>
-          <g class="node new fade" style="--d:3.4s"><rect x="392" y="276" width="116" height="32" rx="16"/><text x="450" y="297" text-anchor="middle" font-size="14">+ 新模型</text></g>
-
-          <g class="pk">
-            <circle r="4" style="fill:var(--router)"><animateMotion dur="1.4s" repeatCount="indefinite"><mpath href="#w0"/></animateMotion></circle>
-            <circle r="4" style="fill:var(--claude)"><animateMotion dur="1.8s" begin=".3s" repeatCount="indefinite"><mpath href="#w1"/></animateMotion></circle>
-            <circle r="4" style="fill:var(--gemini)"><animateMotion dur="1.8s" begin=".9s" repeatCount="indefinite"><mpath href="#w2"/></animateMotion></circle>
-            <circle r="4" style="fill:var(--router)"><animateMotion dur="1.8s" begin="1.4s" repeatCount="indefinite"><mpath href="#w4"/></animateMotion></circle>
-            <circle r="4" style="fill:var(--codex)"><animateMotion dur="1.8s" begin=".6s" repeatCount="indefinite"><mpath href="#w5"/></animateMotion></circle>
-          </g>
-        </svg>
-      </div>
-      <div class="routes in" style="--d:2.6s"><span><b>每日摘要</b> → 便宜又快的模型</span><span><b>疑难分析</b> → 强推理模型</span><span><b>某家故障</b> → 自动切到备用</span></div>
-      <div class="handoff in" style="--d:4s;--n:var(--claude)"><b>交回 Claude</b><span>上线跑一周，把结果拿回来复盘。</span></div>
-    </section>
-
-    <!-- 闭环 -->
-    <section class="scene" style="--c:var(--claude)" aria-label="一圈下来，交回 Claude 复盘">
-      <div class="scene-head">
-        <span class="tag">一圈下来 · 回到起点</span>
-        <h2>交回 Claude，开下一轮</h2>
-        <p>Claude 对照第一步定下的验收标准检查结果，发现缺口就写进新计划，接力再跑一圈。</p>
-      </div>
-      <div class="fig">
-        <svg viewBox="0 0 520 300" role="img" aria-label="循环：Claude 规划，Gemini 调研，Codex 执行，OpenRouter 连接，再回到 Claude">
-          <path id="loop" class="loop-path" d="M260 45A190 105 0 0 1 450 150A190 105 0 0 1 260 255A190 105 0 0 1 70 150A190 105 0 0 1 260 45"/>
-          <g class="lnode fade" style="--d:.1s"><rect x="196" y="23" width="128" height="44" rx="12" style="stroke:var(--claude)"/><text x="260" y="43" text-anchor="middle" font-size="14" font-weight="700">Claude</text><text class="sub" x="260" y="59" text-anchor="middle">规划 · 复盘</text></g>
-          <g class="lnode fade" style="--d:.4s"><rect x="386" y="128" width="128" height="44" rx="12" style="stroke:var(--gemini)"/><text x="450" y="148" text-anchor="middle" font-size="14" font-weight="700">Gemini</text><text class="sub" x="450" y="164" text-anchor="middle">搜索调研</text></g>
-          <g class="lnode fade" style="--d:.7s"><rect x="196" y="233" width="128" height="44" rx="12" style="stroke:var(--codex)"/><text x="260" y="253" text-anchor="middle" font-size="14" font-weight="700">Codex</text><text class="sub" x="260" y="269" text-anchor="middle">编写执行</text></g>
-          <g class="lnode fade" style="--d:1s"><rect x="6" y="128" width="128" height="44" rx="12" style="stroke:var(--router)"/><text x="70" y="148" text-anchor="middle" font-size="14" font-weight="700">OpenRouter</text><text class="sub" x="70" y="164" text-anchor="middle">扩展链接</text></g>
-          <text x="260" y="146" text-anchor="middle" font-size="20" font-weight="700" style="font-family:var(--f-display)">下一轮</text>
-          <text class="sub" x="260" y="168" text-anchor="middle">每一棒只做自己最擅长的事</text>
-          <g class="pk"><circle r="7" style="fill:var(--claude)"><animateMotion dur="6s" repeatCount="indefinite"><mpath href="#loop"/></animateMotion></circle></g>
-        </svg>
-      </div>
-    </section>
-
-    <!-- 每月成本 -->
-    <section class="scene" style="--c:var(--muted)" aria-label="幕后：每月成本">
-      <div class="scene-head">
-        <span class="tag">幕后 · 每月成本</span>
-        <h2>四位队员的门票</h2>
-        <p>三份月度订阅，加上 OpenRouter 按量付费。下面是我真实的 App Store 订单。</p>
-      </div>
-      <div class="receipts">
-        <figure class="rc in" style="--d:.2s;--r:-3deg;--w:var(--claude)">
-          <div class="shot"><img src="assets/receipts/claude.jpg" width="560" height="454" alt="Claude Pro 月度订阅订单，US$20.00，2026 年 9 月 19 日，订单号已打码"><span class="stamp">订单号已打码</span></div>
-          <figcaption><b>Claude Pro</b><span>规划任务 · US$20.00 / 月</span></figcaption>
-        </figure>
-        <figure class="rc in" style="--d:.5s;--r:2deg;--w:var(--gemini)">
-          <div class="shot"><img src="assets/receipts/gemini.jpg" width="560" height="495" alt="Google AI Pro 订阅续期订单，US$19.99，2026 年 9 月 29 日，订单号已打码"><span class="stamp">订单号已打码</span></div>
-          <figcaption><b>Google AI Pro</b><span>Gemini 调研 · US$19.99 / 月</span></figcaption>
-        </figure>
-        <figure class="rc in" style="--d:.8s;--r:-2deg;--w:var(--codex)">
-          <div class="shot"><img src="assets/receipts/chatgpt.jpg" width="560" height="454" alt="ChatGPT Pro 100 订阅续期订单，US$100.00，2026 年 9 月 30 日，订单号已打码"><span class="stamp">订单号已打码</span></div>
-          <figcaption><b>ChatGPT Pro</b><span>用 Codex 执行 · US$100.00 / 月</span></figcaption>
-        </figure>
-        <figure class="rc in" style="--d:1.1s;--r:3deg;--w:var(--router)">
-          <div class="payg"><span class="tag" style="--c:var(--router)">OpenRouter</span><strong>按量付费</strong><p>先充值额度，调用哪个模型就按它的价格扣，没有月费。</p></div>
-          <figcaption><b>OpenRouter</b><span>扩展链接 · 用多少付多少</span></figcaption>
-        </figure>
-      </div>
-      <div class="sum in" style="--d:1.6s"><span>每月固定订阅</span><strong>US$<span id="total">139.99</span></strong><span>+ OpenRouter 按量</span><span class="note">订单截图来自 App Store，订单号已打码处理。</span></div>
-    </section>
-  </main>
-
-  <div class="controls">
-    <button type="button" id="prev"><svg viewBox="0 0 16 16"><path d="M10.5 3 5 8l5.5 5z"/></svg>上一棒</button>
-    <button type="button" id="play" class="primary" aria-pressed="true"><svg viewBox="0 0 16 16" id="playIco"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg><span id="playTxt">暂停</span></button>
-    <button type="button" id="next">下一棒<svg viewBox="0 0 16 16"><path d="M5.5 3 11 8l-5.5 5z"/></svg></button>
-    <button type="button" id="replay">从头播放</button>
-    <span class="count" id="count" aria-live="polite">第 1 / 6 幕</span>
-  </div>
-  <p class="hint">也可以点上方任意一站直接跳过去，或用键盘 ← → 切换、空格暂停。</p>
+  <p class="note">空格暂停 / 播放，R 从头播放。账单截图来自 App Store，订单号已打码。</p>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script>
 (function(){
-  var scenes = Array.prototype.slice.call(document.querySelectorAll('.scene'));
-  var stations = Array.prototype.slice.call(document.querySelectorAll('.st'));
-  var colors = ['--claude','--gemini','--codex','--router','--claude','--claude'];
-  var durations = [7000, 7500, 8500, 7500, 7000, 8000];
-  var total = document.getElementById('total');
+  var $ = function(s, r){ return (r || document).querySelector(s); };
+  var $$ = function(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // 订单截图没有放进仓库时，用一行提示代替破图
-  Array.prototype.forEach.call(document.querySelectorAll('.shot img'), function(img){
+  /* ---------- 应用图标 ---------- */
+  function icon(name){
+    if (name === 'claude') {
+      var rays = '';
+      for (var k = 0; k < 12; k++) {
+        var a = (k * 30 + (k % 2 ? 9 : 0)) * Math.PI / 180, len = [44, 34, 40][k % 3];
+        rays += '<line x1="50" y1="50" x2="' + (50 + Math.cos(a) * len).toFixed(1) + '" y2="' + (50 + Math.sin(a) * len).toFixed(1) + '"/>';
+      }
+      return '<svg viewBox="0 0 100 100"><g class="gl" stroke="var(--orange)" stroke-width="10" stroke-linecap="round">' + rays + '</g></svg>';
+    }
+    if (name === 'gemini') return '<svg viewBox="0 0 100 100"><path class="gl" fill="var(--cobalt)" d="M50 4C54 34 66 46 96 50C66 54 54 66 50 96C46 66 34 54 4 50C34 46 46 34 50 4Z"/></svg>';
+    if (name === 'codex') return '<svg viewBox="0 0 100 100" fill="none" stroke="var(--ink)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><path class="gl" d="M20 28L44 50L20 72"/><path class="cur" d="M54 74H80"/></svg>';
+    return '<svg viewBox="0 0 100 100"><g fill="none" stroke="var(--violet)" stroke-width="9" stroke-linecap="round"><path d="M14 50H38M38 50C56 50 58 22 76 22M38 50H76M38 50C56 50 58 78 76 78"/></g><g class="fv"><circle class="nd" cx="12" cy="50" r="9"/><circle class="nd" cx="84" cy="22" r="10"/><circle class="nd" cx="84" cy="50" r="10"/><circle class="nd" cx="84" cy="78" r="10"/></g></svg>';
+  }
+  $$('[data-icon]').forEach(function(el){ el.innerHTML = icon(el.getAttribute('data-icon')); });
+
+  /* 账单截图缺失时（比如仓库里没有图片），用文字卡片代替 */
+  $$('.rcp img').forEach(function(img){
     function miss(){ img.parentNode.classList.add('missing'); }
     if (img.complete && !img.naturalWidth) miss(); else img.addEventListener('error', miss);
   });
-  var countTimer = null;
 
-  // 成本那一幕：合计金额从 0 数到 139.99
-  function countUp(){
-    clearTimeout(countTimer);
+  /* ---------- 画框缩放 ---------- */
+  var vp = $('#vp'), scaler = $('#scaler');
+  function fit(){ scaler.style.transform = 'scale(' + (vp.clientWidth / 1600) + ')'; }
+  fit();
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(vp); else addEventListener('resize', fit);
+
+  if (!window.gsap) return; // 动画库没加载时，停在封面
+
+  /* ---------- 摄像机 ---------- */
+  var camEl = $('#cam');
+  var cam = { x: 0, y: -220, z: 1.5, r: 0 };
+  function applyCam(){
+    camEl.style.transform = 'translate(800px,450px) rotate(' + cam.r + 'deg) scale(' + cam.z + ') translate(' + (-cam.x) + 'px,' + (-cam.y) + 'px)';
+  }
+  applyCam();
+  gsap.ticker.add(applyCam);
+
+  function shake(amp, dur){
+    amp = reduce ? 0 : amp;
+    return gsap.to('#shake', { keyframes: { x: [0, -amp, amp * .8, -amp * .55, amp * .35, -amp * .15, 0], y: [0, amp * .5, -amp * .6, amp * .4, -amp * .25, amp * .1, 0] }, duration: dur || .45, ease: 'none' });
+  }
+  // 甩镜头时加方向模糊
+  function whip(tl, at, dur, dir){
     if (reduce) return;
-    var target = 139.99, t0 = null;
-    total.textContent = '0.00';
-    countTimer = setTimeout(function(){
-      requestAnimationFrame(function step(t){
-        if (t0 === null) t0 = t;
-        var k = Math.min((t - t0) / 1200, 1);
-        total.textContent = (target * (1 - Math.pow(1 - k, 3))).toFixed(2);
-        if (k < 1) requestAnimationFrame(step);
-      });
-    }, 1700);
+    var mb = $('#mbg');
+    tl.set('#lens', { filter: 'url(#mb)' }, at)
+      .to(mb, { attr: { stdDeviation: dir === 'v' ? '0 60' : '70 0' }, duration: dur / 2, ease: 'power2.in' }, at)
+      .to(mb, { attr: { stdDeviation: '0 0' }, duration: dur / 2, ease: 'power2.out' }, at + dur / 2)
+      .set('#lens', { filter: 'none' }, at + dur);
   }
-  var rail = document.getElementById('rail');
-  var baton = document.getElementById('baton');
-  var fill = document.getElementById('trackFill');
-  var count = document.getElementById('count');
-  var playBtn = document.getElementById('play');
-  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var cur = 0, elapsed = 0, playing = !reduce, last = null;
+  function headIn(tl, room, at){
+    tl.to($$('.rh > *', room), { opacity: 1, x: 0, duration: .5, stagger: .09, ease: 'power3.out' }, at);
+  }
+  var css = getComputedStyle(document.documentElement);
+  function cv(n){ return css.getPropertyValue(n).trim(); }
+  var money = { v: 0 }, cnt = $('#cnt');
+  function moneyTo(v){ return gsap.to(money, { v: v, duration: .5, ease: 'power2.out', onUpdate: function(){ cnt.textContent = money.v.toFixed(2); } }); }
 
-  function go(i, init){
-    var n = scenes.length;
-    i = (i + n) % n;
-    if (!init) {
-      scenes.forEach(function(s){ s.classList.remove('active'); });
-      void scenes[i].offsetWidth; // 强制回流，让进场动画重新播放
-      scenes[i].classList.add('active');
-    }
-    var pos = i >= 4 ? 0 : i; // 闭环和成本两幕：接力棒回到 Claude
-    baton.style.left = (pos + 0.5) * 25 + '%';
-    rail.style.setProperty('--c', 'var(' + colors[i] + ')');
-    fill.style.width = (i >= 4 ? 100 : pos / 3 * 100) + '%';
-    stations.forEach(function(st, k){
-      st.classList.toggle('on', k === pos);
-      st.classList.toggle('done', i >= 4 || k < i);
-      st.querySelector('button').setAttribute('aria-current', k === i ? 'step' : 'false');
-      st.style.setProperty('--p', 0);
-    });
-    count.textContent = '第 ' + (i + 1) + ' / ' + n + ' 幕';
-    if (i === 5 && !init) countUp();
-    cur = i; elapsed = 0;
+  /* ---------- 初始状态 ---------- */
+  var tiles = $$('.hub .tile'), says = $$('.hub .say'), bands = $$('.hub .band');
+  var tileCX = [200, 600, 1000, 1400];
+  tiles.forEach(function(t, i){ gsap.set(t, { x: 800 - tileCX[i], y: 230 - 560, scale: .15, rotation: -220, opacity: 0 }); });
+  gsap.set(says, { xPercent: -50, scale: 0, opacity: 0, transformOrigin: '50% 0%' });
+  gsap.set(bands, { scaleY: 0 });
+  gsap.set('#bubble', { y: 760, rotation: -8 });
+  $$('.type').forEach(function(p){
+    p.innerHTML = p.textContent.split('').map(function(c){ return '<span class="ch">' + c + '</span>'; }).join('');
+  });
+  gsap.set('.ch', { opacity: 0 });
+  gsap.set('.rh > *', { opacity: 0, x: -80 });
+  gsap.set('.board li', { opacity: 0, x: -30 });
+  gsap.set('.stampc', { scale: 0, rotation: -40 });
+  gsap.set($$('.card'), { rotation: function(i){ return [-4, 3, -2][i]; } });
+  gsap.set('#mon .l', { opacity: 0 });
+  gsap.set('.sock.new', { scale: 0, opacity: 0 });
+  gsap.set('#iris', { scale: 0 });
+  gsap.set('#chipGrid,#chipBill', { x: -900 });
+  gsap.set('.rcp', { opacity: 0 });
+  gsap.set('#counter', { xPercent: -50, y: 220 });
+  gsap.set('#wallet', { y: 640, opacity: 0, transformOrigin: '50% 60%' });
+  gsap.set('#endBig', { opacity: 0, scale: 2.4 });
+  gsap.set('#endSub', { opacity: 0, y: 40 });
+  gsap.set('.mini', { y: -800, rotation: function(i){ return [-20, 15, -10, 25][i]; } });
+  gsap.set('#again', { xPercent: -50, opacity: 0, scale: .6, visibility: 'hidden' });
+
+  /* 爆炸碎片：固定种子，拖进度条时每次都一样 */
+  var seed = 7;
+  function rnd(){ seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+  var parts = $('#parts'), bits = [];
+  for (var n = 0; n < 46; n++) {
+    var el = document.createElement('div'), kind = n % 3;
+    el.className = 'pt ' + ['coin', 'cash', 'scrap'][kind];
+    if (kind === 1) el.textContent = '$';
+    parts.appendChild(el);
+    var ang = rnd() * Math.PI * 2, dist = 280 + rnd() * 700;
+    bits.push({ el: el, dx: Math.cos(ang) * dist, up: Math.sin(ang) * dist * .6 - 160 - rnd() * 160, fall: 500 + rnd() * 500, rot: (rnd() - .5) * 1080 });
+  }
+  gsap.set('.pt', { xPercent: -50, yPercent: -50, opacity: 0, scale: .4 });
+
+  /* ---------- 常驻小动作（宠物活着） ---------- */
+  if (!reduce) {
+    gsap.to('[data-icon="claude"] .gl', { rotation: 360, transformOrigin: '50% 50%', duration: 9, repeat: -1, ease: 'none' });
+    gsap.to('[data-icon="gemini"] .gl', { scale: 1.14, transformOrigin: '50% 50%', duration: .9, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    gsap.to('[data-icon="codex"] .cur', { opacity: 0, duration: .45, repeat: -1, yoyo: true, ease: 'steps(1)' });
+    gsap.to('[data-icon="router"] .nd', { scale: 1.35, transformOrigin: '50% 50%', duration: .45, repeat: -1, yoyo: true, stagger: .15, ease: 'sine.inOut' });
+    gsap.to('.c-body', { y: -6, duration: .55, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    gsap.to('.c-eyes', { scaleY: .1, transformOrigin: '50% 50%', duration: .08, repeat: -1, yoyo: true, repeatDelay: 2.2 });
+    gsap.to('.g-body', { y: -16, rotation: 4, transformOrigin: '50% 50%', duration: 1.2, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    $$('.card').forEach(function(c, i){ gsap.to(c, { y: -10, duration: 1.1 + i * .3, repeat: -1, yoyo: true, ease: 'sine.inOut' }); });
+    gsap.to('.x-armL', { y: 10, duration: .09, repeat: -1, yoyo: true });
+    gsap.to('.x-armR', { y: 10, duration: .09, repeat: -1, yoyo: true, delay: .09 });
+    gsap.to('.x-ant', { rotation: 10, transformOrigin: '50% 100%', duration: .4, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    $$('.o-tents path').forEach(function(p, i){ gsap.to(p, { rotation: i % 2 ? 7 : -7, transformOrigin: '50% 0%', duration: .7 + i * .12, repeat: -1, yoyo: true, ease: 'sine.inOut' }); });
+    gsap.to('.o-eyes', { x: 6, duration: 1.4, repeat: -1, yoyo: true, ease: 'sine.inOut' });
   }
 
-  function setPlaying(p){
-    playing = p;
-    playBtn.setAttribute('aria-pressed', String(p));
-    document.getElementById('playTxt').textContent = p ? '暂停' : '播放';
-    document.getElementById('playIco').innerHTML = p
-      ? '<path d="M4 3h3v10H4zM9 3h3v10H9z"/>'
-      : '<path d="M4.5 2.5 13 8l-8.5 5.5z"/>';
-  }
+  /* ---------- 主时间线 ---------- */
+  var tl = gsap.timeline({ paused: true, onUpdate: sync, onComplete: sync });
 
-  function tick(t){
-    if (last !== null && playing) {
-      elapsed += Math.min(t - last, 100);
-      var p = Math.min(elapsed / durations[cur], 1);
-      if (cur < 4) stations[cur].style.setProperty('--p', p);
-      if (elapsed >= durations[cur]) go(cur + 1);
-    }
-    last = t;
-    requestAnimationFrame(tick);
-  }
+  // 0. 片头色条落下
+  tl.to('#tblock', { scale: .9, opacity: 0, duration: .3, ease: 'power2.in' }, 1.3)
+    .to('.ts', { y: 900, duration: .6, stagger: .08, ease: 'power3.in' }, 1.35);
 
-  document.getElementById('prev').onclick = function(){ go(cur - 1); };
-  document.getElementById('next').onclick = function(){ go(cur + 1); };
-  document.getElementById('replay').onclick = function(){ go(0); setPlaying(true); };
-  playBtn.onclick = function(){ setPlaying(!playing); };
-  stations.forEach(function(st){
-    st.querySelector('button').onclick = function(){ go(+this.getAttribute('data-go')); };
+  // 1. 想法气泡升起
+  tl.to('#bubble', { y: 0, rotation: 0, duration: .95, ease: 'back.out(1.5)' }, 1.8)
+    .to(cam, { z: 1.25, duration: 1.6, ease: 'power2.out' }, 1.8)
+    .to('.ch', { opacity: 1, duration: .01, stagger: .05 }, 2.5);
+
+  // 2. 拉远，应用依次从气泡里蹦出来
+  tl.to(cam, { y: 0, z: 1, duration: 1, ease: 'power3.inOut' }, 3.8);
+  tiles.forEach(function(t, i){
+    var at = 4.8 + i * 1.25;
+    tl.to(t, { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, duration: .6, ease: 'back.out(1.7)' }, at)
+      .to(bands[i], { scaleY: 1, duration: .5, ease: 'power4.out' }, at + .25)
+      .to(t, { keyframes: { scaleX: [1, 1.2, .94, 1], scaleY: [1, .78, 1.06, 1] }, duration: .4, ease: 'none' }, at + .6)
+      .to(says[i], { scale: 1, opacity: 1, duration: .45, ease: 'back.out(2.2)' }, at + .72)
+      .to(cam, { x: (tileCX[i] - 800) * .22, z: 1.06, r: i % 2 ? 1.6 : -1.6, duration: .7, ease: 'power2.inOut' }, at)
+      .add(shake(9, .3), at + .6);
+  });
+  tl.to(cam, { x: 0, z: .98, r: 0, duration: .6, ease: 'power2.inOut' }, 9.8)
+    .to(tiles, { y: -34, duration: .18, stagger: .08, yoyo: true, repeat: 1, ease: 'power2.out' }, 10.1);
+
+  // 3. 镜头冲进 Claude 图标，橙色转场
+  tl.to(cam, { x: -600, y: 110, z: 3.8, r: -10, duration: .8, ease: 'power3.in' }, 11.0)
+    .set('#iris', { backgroundColor: cv('--orange'), opacity: 1 }, 11.3)
+    .to('#iris', { scale: 22, duration: .45, ease: 'power2.in' }, 11.35)
+    .set(cam, { x: 4000, y: 0, z: 2.4, r: 8 }, 11.8)
+    .to(cam, { z: 1, r: 0, duration: 1.3, ease: 'power3.out' }, 11.8)
+    .to('#iris', { opacity: 0, duration: .55 }, 11.8)
+    .set('#iris', { scale: 0 }, 12.4);
+  headIn(tl, $('#roomClaude'), 12.1);
+  $$('.board li').forEach(function(li, k){
+    var at = 12.7 + k * .72;
+    tl.to(li, { opacity: 1, x: 0, duration: .3 }, at)
+      .to($('.cb path', li), { strokeDashoffset: 0, duration: .3, ease: 'power1.out' }, at + .22)
+      .to('.c-arm', { rotation: -16, svgOrigin: '248 97', duration: .14, yoyo: true, repeat: 1 }, at + .15);
+  });
+  tl.to('#petClaude', { y: -70, duration: .22, yoyo: true, repeat: 1, ease: 'power2.out' }, 15.5);
+
+  // 4. 甩镜头向右：Gemini
+  tl.to(cam, { x: 5600, duration: .85, ease: 'power4.inOut' }, 16.2)
+    .to(cam, { r: -5, z: .82, duration: .425, ease: 'power2.in' }, 16.2)
+    .to(cam, { r: 0, z: 1, duration: .425, ease: 'power2.out' }, 16.625);
+  whip(tl, 16.2, .85, 'h');
+  headIn(tl, $('#roomGemini'), 17.0);
+  var lensPath = [[375, -272], [705, -192], [415, -12]], stamps = $$('.stampc');
+  lensPath.forEach(function(p, k){
+    var at = 17.3 + k * .78;
+    tl.to('#lensG', { x: p[0], y: p[1], rotation: k % 2 ? 8 : -8, duration: .5, ease: 'power2.inOut' }, at)
+      .to('.g-eyes', { x: 8, y: k === 2 ? 4 : -6, duration: .3 }, at)
+      .to(stamps[k], { scale: 1, rotation: 0, duration: .35, ease: 'back.out(2.5)' }, at + .5);
+  });
+  tl.to('#lensG', { x: 0, y: 0, rotation: 0, duration: .5, ease: 'power2.inOut' }, 19.75)
+    .to('.g-eyes', { x: 0, y: 0, duration: .3 }, 19.75);
+
+  // 5. 旋转下坠：Codex
+  tl.to(cam, { y: 900, duration: 1, ease: 'power4.inOut' }, 20.7)
+    .to(cam, { r: 14, z: .7, duration: .5, ease: 'power2.in' }, 20.7)
+    .to(cam, { r: 0, z: 1, duration: .5, ease: 'power2.out' }, 21.2);
+  whip(tl, 20.7, 1, 'v');
+  headIn(tl, $('#roomCodex'), 21.6);
+  var lines = $$('#mon .l'), lt = [21.9, 22.5, 22.7, 22.9, 23.1, 23.6, 24.2, 25.0, 25.7];
+  lines.forEach(function(l, k){ tl.to(l, { opacity: 1, duration: .05 }, lt[k]); });
+  tl.to('#mon', { borderColor: cv('--alarm'), duration: .1 }, 24.2)
+    .to('.x-eyes', { opacity: 0, duration: .05 }, 24.2)
+    .to('.x-dead', { opacity: 1, duration: .05 }, 24.2)
+    .to('.x-sweat', { opacity: 1, y: 16, duration: .5 }, 24.25)
+    .add(shake(14, .35), 24.2)
+    .to('.x-dead', { opacity: 0, duration: .05 }, 25.0)
+    .to('.x-eyes', { opacity: 1, duration: .05 }, 25.0)
+    .to('.x-sweat', { opacity: 0, duration: .2 }, 25.1)
+    .to('#mon', { borderColor: cv('--lime'), duration: .1 }, 25.7)
+    .to('.x-ball', { scale: 1.9, transformOrigin: '50% 50%', duration: .15, yoyo: true, repeat: 3 }, 25.7)
+    .to('#petCodex', { y: -60, duration: .22, yoyo: true, repeat: 1, ease: 'power2.out' }, 25.75);
+
+  // 6. 甩镜头向左：OpenRouter
+  tl.to(cam, { x: 4000, duration: .9, ease: 'power4.inOut' }, 26.9)
+    .to(cam, { r: 6, z: .78, duration: .45, ease: 'power2.in' }, 26.9)
+    .to(cam, { r: 0, z: 1, duration: .45, ease: 'power2.out' }, 27.35);
+  whip(tl, 26.9, .9, 'h');
+  headIn(tl, $('#roomRouter'), 27.7);
+  var socks = $$('.sock');
+  for (var c = 0; c < 6; c++) {
+    var at = 28.1 + c * .34;
+    tl.to('#rc' + c, { strokeDashoffset: 0, duration: .32, ease: 'power1.in' }, at)
+      .to($('i', socks[c]), { backgroundColor: cv('--lime'), duration: .05 }, at + .32)
+      .to(socks[c], { keyframes: { scale: [1, 1.08, 1] }, duration: .25, ease: 'none' }, at + .32);
+  }
+  tl.to('.sock.new', { scale: 1, opacity: 1, duration: .4, ease: 'back.out(2)' }, 30.3)
+    .to('#rc6', { strokeDashoffset: 0, duration: .4, ease: 'power1.in' }, 30.55)
+    .to($('i', socks[6]), { backgroundColor: cv('--lime'), borderColor: cv('--lime'), duration: .05 }, 30.95)
+    .to('.pk', { opacity: 1, duration: .3 }, 31.0);
+
+  // 7. 大拉远：四个房间拼成撞色格子
+  tl.to(cam, { x: 4800, y: 450, z: .47, duration: 2.2, ease: 'power3.inOut' }, 32.2)
+    .to(cam, { r: -7, duration: 1.1, ease: 'power2.in' }, 32.2)
+    .to(cam, { r: 0, duration: 1.1, ease: 'power2.out' }, 33.3)
+    .to('#chipGrid', { x: 0, duration: .5, ease: 'back.out(1.4)' }, 33.9);
+
+  // 8. 账单砸进来
+  var rcps = $$('.rcp');
+  var flyFrom = [{ x: -900, y: -150, rotation: -55 }, { x: 60, y: -900, rotation: 30 }, { x: 900, y: -100, rotation: 60 }];
+  var rest = [-7, 3, 8], totals = [20, 39.99, 139.99];
+  tl.to('#chipGrid', { x: -900, duration: .35, ease: 'power2.in' }, 35.4)
+    .to('#dim', { opacity: 1, duration: .4 }, 35.4)
+    .to('#chipBill', { x: 0, duration: .5, ease: 'back.out(1.4)' }, 35.6)
+    .to('#counter', { y: 0, duration: .5, ease: 'back.out(1.4)' }, 35.8);
+  rcps.forEach(function(r, k){
+    var at = 36.1 + k * .9;
+    tl.fromTo(r, { opacity: 1, x: flyFrom[k].x, y: flyFrom[k].y, rotation: flyFrom[k].rotation, scale: 1.5 },
+                 { x: 0, y: 0, rotation: rest[k], scale: 1, duration: .45, ease: 'power4.in', immediateRender: false }, at)
+      .add(shake(k === 2 ? 34 : 16, k === 2 ? .6 : .35), at + .45)
+      .add(moneyTo(totals[k]), at + .45)
+      .to('#counter', { keyframes: { scale: [1, 1.15, 1] }, duration: .3, ease: 'none' }, at + .45);
+  });
+  // 屏幕变红
+  tl.to('#red', { keyframes: { opacity: [0, 1, .6, 1, .75, 1] }, duration: .7, ease: 'none' }, 38.0)
+    .to('#cnt', { color: cv('--alarm'), duration: .1 }, 38.0)
+    .to('#chipBill', { backgroundColor: cv('--ink'), color: cv('--paper'), duration: .1 }, 38.0);
+
+  // 9. 钱包出场、吞账单、鼓胀、爆炸
+  tl.to('#wallet', { y: 0, opacity: 1, duration: .5, ease: 'back.out(1.6)' }, 38.8);
+  var suck = [[380, 60], [0, 90], [-380, 50]];
+  rcps.forEach(function(r, k){
+    var at = 39.4 + k * .2;
+    tl.to(r, { x: suck[k][0], y: suck[k][1], scale: .05, rotation: 540, duration: .42, ease: 'power3.in' }, at)
+      .to('#wallet', { scale: 1.15 + k * .16, duration: .18, ease: 'back.out(3)' }, at + .42);
+  });
+  tl.to('#wallet', { keyframes: { x: [0, -14, 12, -16, 14, -10, 16, -12, 0], rotation: [0, -4, 4, -5, 5, -3, 4, -2, 0] }, duration: .7, ease: 'none' }, 40.3)
+    .to('#wallet', { scale: 1.9, duration: .7, ease: 'power2.in' }, 40.3)
+    .set('#wallet', { opacity: 0 }, 41.0)
+    .to('#flash', { keyframes: { opacity: [0, 1, 0] }, duration: .5, ease: 'none' }, 41.0)
+    .add(shake(46, .7), 41.0)
+    .to('#chipBill', { x: -900, duration: .3, ease: 'power2.in' }, 41.0)
+    .to('#counter', { y: 220, duration: .3, ease: 'power2.in' }, 41.0);
+  bits.forEach(function(b, i){
+    var d = 1.5 + (i % 5) * .08;
+    tl.set(b.el, { opacity: 1 }, 41.0)
+      .to(b.el, { x: b.dx, rotation: b.rot, scale: 1, duration: d, ease: 'power2.out' }, 41.0)
+      .to(b.el, { y: b.up, duration: d * .35, ease: 'power2.out' }, 41.0)
+      .to(b.el, { y: b.up + b.fall, duration: d * .65, ease: 'power2.in' }, 41.0 + d * .35);
+  });
+
+  // 10. 片尾
+  tl.to('#endBig', { opacity: 1, scale: 1, duration: .45, ease: 'power4.in' }, 41.9)
+    .add(shake(26, .45), 42.35)
+    .to('#endSub', { opacity: 1, y: 0, duration: .45, ease: 'power3.out' }, 42.6)
+    .to('.mini', { y: 0, rotation: 0, duration: .7, stagger: .12, ease: 'bounce.out' }, 42.9)
+    .to('#again', { visibility: 'visible', opacity: 1, scale: 1, duration: .4, ease: 'back.out(2)' }, 43.9)
+    .to({}, { duration: .8 }, 44.3);
+
+  /* ---------- 播放控制 ---------- */
+  var seek = $('#seek'), time = $('#time'), playBtn = $('#play');
+  function fmt(s){ s = Math.round(s); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
+  function setIcon(){
+    var on = !tl.paused() && tl.progress() < 1;
+    playBtn.setAttribute('aria-label', on ? '暂停' : '播放');
+    $('#playIco').innerHTML = on ? '<path d="M3.5 2.5h3v11h-3zm6 0h3v11h-3z"/>' : '<path d="M4 2.5 13.5 8 4 13.5z"/>';
+  }
+  function sync(){
+    seek.value = Math.round(tl.progress() * 1000);
+    time.textContent = fmt(tl.time()) + ' / ' + fmt(tl.duration());
+    setIcon();
+  }
+  function toggle(){
+    if (tl.progress() >= 1) tl.restart();
+    else tl.paused(!tl.paused());
+    setIcon();
+  }
+  playBtn.addEventListener('click', toggle);
+  $('#restart').addEventListener('click', function(){ tl.restart(); setIcon(); });
+  $('#again').addEventListener('click', function(){ tl.restart(); setIcon(); });
+  seek.addEventListener('input', function(){ tl.progress(seek.value / 1000); sync(); });
+  $('#fs').addEventListener('click', function(){
+    var p = $('#player');
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (p.requestFullscreen) p.requestFullscreen().catch(function(){});
+    } catch (e) {}
   });
   document.addEventListener('keydown', function(e){
-    if (e.target.closest && e.target.closest('button') && e.key === ' ') return;
-    if (e.key === 'ArrowRight') go(cur + 1);
-    else if (e.key === 'ArrowLeft') go(cur - 1);
-    else if (e.key === ' ') { e.preventDefault(); setPlaying(!playing); }
+    if (e.target.tagName === 'INPUT' && e.key !== ' ') return;
+    if (e.key === ' ') { e.preventDefault(); toggle(); }
+    else if (e.key === 'r' || e.key === 'R') { tl.restart(); setIcon(); }
   });
 
-  setPlaying(playing);
-  go(0, true); // 首屏直接呈现完整画面
-  requestAnimationFrame(tick);
+  sync();
+  // 字体就绪后自动开播；系统要求减少动态效果时，停在封面等用户点播放
+  if (!reduce) {
+    var started = false;
+    var go = function(){ if (!started) { started = true; tl.play(0); setIcon(); } };
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ setTimeout(go, 500); });
+    setTimeout(go, 2500);
+  }
 })();
 </script>
 </body>
